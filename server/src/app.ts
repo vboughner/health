@@ -2,7 +2,10 @@ import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import cookie from '@fastify/cookie';
 import type { Db } from './db';
 import { SESSION_COOKIE, getSessionUser, User } from './auth';
+import type { UsdaClient } from './usda';
 import { registerAuthRoutes } from './routes/auth';
+import { registerFoodRoutes } from './routes/foods';
+import { registerLogRoutes } from './routes/log';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -16,6 +19,7 @@ declare module 'fastify' {
 
 export interface AppOptions {
   db: Db;
+  usda: UsdaClient;
   sessionSecret: string;
   isProduction: boolean;
   logger?: boolean;
@@ -50,6 +54,8 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.register(
     async (api) => {
       registerAuthRoutes(api, opts);
+      registerFoodRoutes(api, opts);
+      registerLogRoutes(api, opts);
     },
     { prefix: '/api' },
   );

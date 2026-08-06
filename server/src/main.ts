@@ -1,6 +1,7 @@
 import { config } from './config';
 import { openDatabase } from './db';
 import { deleteExpiredSessions } from './auth';
+import { createUsdaClient } from './usda';
 import { buildApp } from './app';
 
 async function main() {
@@ -9,6 +10,7 @@ async function main() {
 
   const app = buildApp({
     db,
+    usda: createUsdaClient(config.usdaApiKey),
     sessionSecret: config.sessionSecret,
     isProduction: config.isProduction,
     logger: true,

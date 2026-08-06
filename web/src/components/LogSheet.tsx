@@ -1,0 +1,128 @@
+import { useState, useMemo } from 'react';
+import { api } from '../api';
+import { preview } from '../nutrition';
+import { isSaved, type Pickable, type Unit } from '../types';
+import { MacroBar } from './MacroBar';
+
+const UNITS: { id: Unit; label: string }[] = [
+  { id: 'serving', label: 'serving' },
+  { id: 'g', label: 'grams' },
+  { id: 'oz', label: 'oz' },
+];
+
+/**
+ * Bottom sheet for choosing how much of a food to log, with a live preview of what
+ * it costs. The server recomputes on save — the preview is only there so the choice
+ * is informed.
+ */
+export function LogSheet({
+  food,
+  flags = [],
+  onClose,
+  onLogged,
+}: {
+  food: Pickable;
+  flags?: string[];
+  onClose: () => void;
+  onLogged: (warning: string | null) => void;
+}) {
+  const hasServing = !!food.serving_grams && food.serving_grams > 0;
+  const [unit, setUnit] = useState<Unit>(hasServing ? 'serving' : 'g');
+  const [quantity, setQuantity] = useState(hasServing ? '1' : '100');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const amount = Number(quantity);
+  const p = useMemo(() => preview(food, amount, unit), [food, amount, unit]);
+
+  async function log() {
+    if (!p) return;
+    setBusy(true);
+    setError('');
+    try {
+      const body = isSaved(food)
+        ? { food_id: food.id, quantity: amount, unit }
+        : { food: { source: 'usda' as const, ...food }, quantity: amount, unit };
+
+      const res = await api.post<{ warning: string | null }>('/log/food', body);
+      onLogged(res.warning);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not log that');
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="sheet-backdrop" onClick={onClose}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="sheet-handle" />
+
+        <div className="sheet-head">
+          <div className="sheet-title">{food.name}</div>
+          {food.brand && <div className="faint tiny">{food.brand}</div>}
+        </div>
+
+        {flags.length > 0 && (
+          <div className="warn-banner">
+            <strong>⚠ Flagged for {flags.join(', ')}.</strong> Fine to log — just worth skipping
+            next time.
+          </div>
+        )}
+
+        <div className="qty-row">
+          <input
+            type="number"
+            inputMode="decimal"
+            step="any"
+            min="0"
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+            aria-label="Quantity"
+            autoFocus
+          />
+          <div className="seg">
+            {UNITS.map((u) => (
+              <button
+                key={u.id}
+                className="seg-btn"
+                aria-pressed={unit === u.id}
+                disabled={u.id === 'serving' && !hasServing}
+                onClick={() => setUnit(u.id)}
+              >
+                {u.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {!hasServing && unit === 'serving' && (
+          <div className="tiny faint">No serving size on record — log this one by weight.</div>
+        )}
+
+        {p ? (
+          <div className="preview">
+            <div className="preview-kcal">
+              {Math.round(p.kcal)}
+              <span className="preview-kcal-unit">cal</span>
+              <span className="faint tiny"> · {Math.round(p.grams)}g</span>
+            </div>
+            <MacroBar protein_g={p.protein_g} fat_g={p.fat_g} carb_g={p.carb_g} />
+          </div>
+        ) : (
+          <div className="empty tiny">Enter an amount.</div>
+        )}
+
+        {error && <div className="error">{error}</div>}
+
+        <div className="sheet-actions">
+          <button className="btn" onClick={onClose} disabled={busy}>
+            Cancel
+          </button>
+          <button className="btn btn-primary" onClick={log} disabled={!p || busy}>
+            {busy ? <span className="spinner" /> : 'Log it'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

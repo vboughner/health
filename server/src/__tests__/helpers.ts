@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { openDatabase, type Db } from '../db';
 import { buildApp } from '../app';
 import { createUser } from '../auth';
+import { nullUsdaClient, type UsdaClient, type UsdaFood } from '../usda';
 
 export const TEST_SECRET = 'test-secret-that-is-at-least-32-characters-long';
 
@@ -9,9 +10,57 @@ export function testDb(): Db {
   return openDatabase(':memory:');
 }
 
-export function testApp(db: Db): FastifyInstance {
-  return buildApp({ db, sessionSecret: TEST_SECRET, isProduction: false, logger: false });
+export function testApp(db: Db, usda: UsdaClient = nullUsdaClient): FastifyInstance {
+  return buildApp({ db, usda, sessionSecret: TEST_SECRET, isProduction: false, logger: false });
 }
+
+/** A stand-in for USDA that never touches the network. */
+export function fakeUsda(results: UsdaFood[]): UsdaClient {
+  return {
+    configured: true,
+    async search() {
+      return results;
+    },
+  };
+}
+
+/** A USDA client that always fails, for testing graceful degradation. */
+export const brokenUsda: UsdaClient = {
+  configured: true,
+  async search() {
+    throw new Error('USDA search failed (503)');
+  },
+};
+
+export const USDA_BANANA: UsdaFood = {
+  source_id: '1105314',
+  name: 'Bananas, raw',
+  brand: null,
+  serving_desc: null,
+  serving_grams: null,
+  kcal_per_100g: 89,
+  protein_g: 1.09,
+  fat_g: 0.33,
+  carb_g: 22.8,
+  added_sugar_g: null,
+  sodium_mg: 1,
+  ingredients: null,
+};
+
+export const USDA_COOKIE: UsdaFood = {
+  source_id: '2001',
+  name: 'Chocolate Chip Cookies',
+  brand: 'Sample Bakery',
+  serving_desc: '2 cookies',
+  serving_grams: 32,
+  kcal_per_100g: 500,
+  protein_g: 5,
+  fat_g: 25,
+  carb_g: 65,
+  added_sugar_g: 35,
+  sodium_mg: 420,
+  ingredients: 'ENRICHED FLOUR, SUGAR, PARTIALLY HYDROGENATED SOYBEAN OIL, ARTIFICIAL FLAVOR',
+};
 
 /** Create a user and return a Cookie header string for an authenticated session. */
 export async function loginAs(

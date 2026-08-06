@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { api, ApiError } from './api';
 import type { User } from './types';
 import { Login } from './screens/Login';
 import { Today } from './screens/Today';
+import { AddFood } from './screens/AddFood';
 
 type Tab = 'today' | 'add' | 'trends';
 
@@ -16,17 +17,26 @@ export function App() {
   const [user, setUser] = useState<User | null>(null);
   const [checking, setChecking] = useState(true);
   const [tab, setTab] = useState<Tab>('today');
+  // Bumped whenever something is logged, so Today reloads when switched back to.
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     api
       .me()
       .then(({ user }) => setUser(user))
       .catch((err) => {
-        // 401 just means "not logged in yet" — anything else is worth seeing in the console.
+        // 401 just means "not logged in yet" — anything else is worth seeing.
         if (!(err instanceof ApiError && err.status === 401)) console.error(err);
       })
       .finally(() => setChecking(false));
   }, []);
+
+  const logout = useCallback(async () => {
+    await api.logout();
+    setUser(null);
+  }, []);
+
+  const handleLogged = useCallback(() => setRefreshKey((k) => k + 1), []);
 
   if (checking) {
     return (
@@ -38,17 +48,12 @@ export function App() {
 
   if (!user) return <Login onLoggedIn={setUser} />;
 
-  async function logout() {
-    await api.logout();
-    setUser(null);
-  }
-
   return (
     <div className="app">
       <main className="app-main">
-        {tab === 'today' && <Today user={user} onLogout={logout} />}
-        {tab === 'add' && <div className="empty">Food search lands in the next step.</div>}
-        {tab === 'trends' && <div className="empty">Charts land after that.</div>}
+        {tab === 'today' && <Today user={user} refreshKey={refreshKey} onLogout={logout} />}
+        {tab === 'add' && <AddFood onLogged={handleLogged} />}
+        {tab === 'trends' && <div className="empty">Charts land in the next step.</div>}
       </main>
 
       <nav className="tabbar">

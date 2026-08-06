@@ -308,3 +308,437 @@ textarea:focus {
   font-size: 14px;
   margin-bottom: 26px;
 }
+
+.screen-title {
+  font-size: 22px;
+}
+
+.note {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 11px 14px;
+  color: var(--text-dim);
+}
+
+/* ---------- calories ---------- */
+
+.kcal-numbers {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 12px;
+}
+
+.kcal-right {
+  text-align: right;
+}
+
+.kcal-big {
+  font-size: 34px;
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.kcal-over {
+  color: var(--over);
+}
+
+.kcal-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  margin-top: 5px;
+}
+
+.kcal-track {
+  height: 8px;
+  background: var(--surface-2);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.kcal-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.kcal-fill-over {
+  background: var(--over);
+}
+
+/* ---------- macros ---------- */
+
+.macro-bar {
+  display: flex;
+  height: 9px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.macro-seg {
+  transition: width 0.3s ease;
+}
+
+.macro-empty {
+  background: var(--surface-2);
+}
+
+.macro-protein {
+  background: var(--protein);
+}
+
+.macro-fat {
+  background: var(--fat);
+}
+
+.macro-carb {
+  background: var(--carb);
+}
+
+.macro-legend {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 11px;
+}
+
+.macro-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  min-width: 0;
+}
+
+.macro-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.macro-legend-label {
+  color: var(--text-faint);
+}
+
+.macro-legend-value {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ---------- lists ---------- */
+
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.food-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 0;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.food-row:last-child,
+.entry:last-child {
+  border-bottom: none;
+}
+
+.food-row:active {
+  opacity: 0.6;
+}
+
+.food-row-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.food-row-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  /* Long USDA descriptions get two lines, then clip. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.food-row-detail {
+  font-size: 12px;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.food-row-kcal {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+  color: var(--text-dim);
+}
+
+.food-row-unit {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-left: 2px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 5px;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.5;
+  flex-shrink: 0;
+}
+
+.chip-warn {
+  background: var(--warn-dim);
+  color: var(--warn);
+}
+
+/* ---------- today's entries ---------- */
+
+.entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.entry-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.entry-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+}
+
+.entry-detail {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.entry-kcal {
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+}
+
+.entry-del {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--text-faint);
+  background: var(--surface-2);
+}
+
+.entry-del:active {
+  background: var(--over-dim);
+  color: var(--over);
+}
+
+/* ---------- bottom sheet ---------- */
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 50;
+  animation: fade 0.15s ease;
+}
+
+.sheet {
+  width: 100%;
+  max-width: 560px;
+  background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  padding: 8px 16px calc(20px + env(safe-area-inset-bottom));
+  max-height: 88dvh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: slide-up 0.2s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.sheet-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+  margin: 4px auto 2px;
+  flex-shrink: 0;
+}
+
+.sheet-title {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.sheet-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.sheet-actions .btn {
+  flex: 1;
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(18px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet,
+  .sheet-backdrop {
+    animation: none;
+  }
+}
+
+.warn-banner {
+  background: var(--warn-dim);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* ---------- quantity picker ---------- */
+
+.qty-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.qty-row input {
+  width: 92px;
+  flex-shrink: 0;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.seg {
+  display: flex;
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.seg-btn {
+  flex: 1;
+  padding: 9px 4px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.seg-btn[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.seg-btn:disabled {
+  opacity: 0.35;
+}
+
+.preview {
+  background: var(--surface-2);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.preview-kcal {
+  font-size: 28px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 12px;
+}
+
+.preview-kcal-unit {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-faint);
+  margin-left: 4px;
+}
+
+/* ---------- forms ---------- */
+
+.field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.field-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+}
+
+/* ---------- toast ---------- */
+
+.toast {
+  background: var(--accent-dim);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-size: 14px;
+  animation: fade 0.2s ease;
+}
+
+.toast-warn {
+  background: var(--warn-dim);
+}
