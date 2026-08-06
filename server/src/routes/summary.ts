@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppOptions } from '../app';
-import { localDay, eatingWindow, sleepHours } from '../domain/day';
+import { localDay, localMinutes, parseHHMM, eatingWindow, sleepHours } from '../domain/day';
 import { sumNutrition, macroSplit } from '../domain/nutrition';
 import { summarizeBurn, netIntake } from '../domain/exercise';
 import { listFoodLog, listExercise, getDailyEntry } from '../store';
@@ -20,10 +20,16 @@ export function registerSummaryRoutes(app: FastifyInstance, opts: AppOptions): v
     { preHandler: app.requireUser },
     async (request, reply) => {
       const user = request.user!;
-      const date =
-        request.params.date === 'today' ? localDay(Date.now(), user.timezone) : request.params.date;
+      const now = Date.now();
+      const today = localDay(now, user.timezone);
+      const date = request.params.date === 'today' ? today : request.params.date;
 
       if (!DATE_RE.test(date)) return reply.code(400).send({ error: 'Expected a YYYY-MM-DD date' });
+
+      // A past day is settled; today is only settled once the eating window closes.
+      const dayIsOver =
+        date < today ||
+        (date === today && localMinutes(now, user.timezone) >= parseHHMM(user.window_end));
 
       const foods = listFoodLog(opts.db, user.id, date);
       const exercise = listExercise(opts.db, user.id, date);
@@ -52,7 +58,7 @@ export function registerSummaryRoutes(app: FastifyInstance, opts: AppOptions): v
           ...burn,
           target: user.daily_burn_target,
         },
-        net: netIntake(totals.kcal, burn.total),
+        net: netIntake(totals.kcal, burn.total, dayIsOver),
         window: {
           ...window,
           target_start: user.window_start,

@@ -4,6 +4,7 @@ import type { User } from './types';
 import { Login } from './screens/Login';
 import { Today } from './screens/Today';
 import { AddFood } from './screens/AddFood';
+import { Trends } from './screens/Trends';
 
 type Tab = 'today' | 'add' | 'trends';
 
@@ -53,7 +54,7 @@ export function App() {
       <main className="app-main">
         {tab === 'today' && <Today user={user} refreshKey={refreshKey} onLogout={logout} />}
         {tab === 'add' && <AddFood onLogged={handleLogged} />}
-        {tab === 'trends' && <div className="empty">Charts land in the next step.</div>}
+        {tab === 'trends' && <Trends refreshKey={refreshKey} />}
       </main>
 
       <nav className="tabbar">

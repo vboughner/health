@@ -283,7 +283,7 @@ describe('daily entry and summary', () => {
       expect(s.window).toMatchObject({ target_start: '09:00', target_end: '19:00' });
     });
 
-    it('flags a day where exercise leaves net intake too low', async () => {
+    it('flags a past day where exercise left net intake too low', async () => {
       await put(`/api/day/${DAY}`, { weight_lb: 195 });
       await logFood(100, 1500, '12:00'); // 1500 cal
       await post('/api/log/exercise', { activity: 'running', minutes: 30, kcal: 900, date: DAY });
@@ -291,7 +291,32 @@ describe('daily entry and summary', () => {
       const s = await summary();
 
       expect(s.net.net).toBe(600);
+      // DAY is in the past, so the number is final and the warning means something.
       expect(s.net.tooLow).toBe(true);
+    });
+
+    it('does not flag today while the eating window is still open', async () => {
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+      const nowMinutes = Number(
+        new Date().toLocaleString('en-US', {
+          timeZone: 'America/Los_Angeles',
+          hour: '2-digit',
+          hourCycle: 'h23',
+        }),
+      );
+
+      await post('/api/log/food', {
+        food: { source: 'usda', ...USDA_BANANA },
+        quantity: 500,
+        unit: 'g',
+      });
+      await post('/api/log/exercise', { activity: 'running', minutes: 30, kcal: 900 });
+
+      const s = (await get(`/api/summary/${today}`)).json();
+
+      // Net is ~-455 either way; whether it warns depends on the time of day.
+      expect(s.net.net).toBeLessThan(1200);
+      expect(s.net.tooLow).toBe(nowMinutes >= 19);
     });
 
     it('reports macro percentages of calories', async () => {

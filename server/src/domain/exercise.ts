@@ -85,10 +85,15 @@ export function summarizeBurn(
  * against a 2400 intake can leave net intake uncomfortably low, and that is worth
  * seeing rather than discovering later. 1200 is the conventional floor below which
  * a sustained deficit starts costing muscle.
+ *
+ * `dayIsOver` matters more than it looks. Every day is under the floor at 9am, so
+ * warning while the day is still in progress would fire every single morning and
+ * be tuned out inside a week. The number only means something once the eating
+ * window has closed.
  */
 export const NET_INTAKE_FLOOR = 1200;
 
-export function netIntake(eaten: number, burned: number) {
+export function netIntake(eaten: number, burned: number, dayIsOver = true) {
   const net = Math.round(eaten - burned);
-  return { net, tooLow: net < NET_INTAKE_FLOOR && eaten > 0 };
+  return { net, tooLow: dayIsOver && eaten > 0 && net < NET_INTAKE_FLOOR };
 }

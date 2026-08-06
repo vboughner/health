@@ -128,6 +128,17 @@ describe('netIntake', () => {
     expect(netIntake(0, 500).tooLow).toBe(false);
   });
 
+  it('stays quiet while the day is still in progress', () => {
+    // Breakfast plus a morning run is under the floor every single day. Warning
+    // then would fire daily and stop meaning anything.
+    expect(netIntake(700, 400, false).tooLow).toBe(false);
+    expect(netIntake(700, 400, true).tooLow).toBe(true);
+  });
+
+  it('still reports the net number while the day is in progress', () => {
+    expect(netIntake(700, 400, false).net).toBe(300);
+  });
+
   it('can go negative on a very heavy training day', () => {
     expect(netIntake(500, 900).net).toBe(-400);
   });

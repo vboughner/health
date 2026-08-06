@@ -18,7 +18,12 @@ npm run format                    # auto-fix formatting
 npm run build                     # build both packages
 
 npm run create-user --prefix server -- <username>    # create a login
+npm run seed-demo --prefix server -- <username>      # 6 weeks of fake history, for the charts
+node web/scripts/make-icons.mjs                      # regenerate the PWA icons
 ```
+
+To use it from your phone on the same wifi: `./dev.sh`, then open
+`http://<your-mac's-LAN-IP>:5174`. Both dev servers already listen on the LAN.
 
 ## Architecture
 
@@ -36,6 +41,14 @@ Two packages, mirroring the `server/` + `client/` split in the griljor repo.
     **The test suite never hits the network.**
 - **`web/`** — Vite + React + TypeScript, ESM. Built to `web/dist/`, served by nginx in
   production. The dev server proxies `/api` to :3200 so cookies behave the same in both.
+  - `src/components/charts.tsx` — hand-rolled inline SVG, no chart library. Bars are
+    zero-based on purpose; a truncated baseline makes a 1200-calorie day look like a
+    fraction of a 2000-calorie one.
+  - Chart colors were validated for color-vision deficiency against both surfaces.
+    Amber is reserved for warnings, which is why the fat macro is orange.
+  - `public/sw.js` — caches the app shell only. It deliberately does **not** cache API
+    responses or queue writes offline: showing a stale summary as today's, or a food
+    as logged when it never reached the server, would be worse than an honest failure.
 
 ## Data model notes
 
