@@ -6,6 +6,8 @@ import type { UsdaClient } from './usda';
 import { registerAuthRoutes } from './routes/auth';
 import { registerFoodRoutes } from './routes/foods';
 import { registerLogRoutes } from './routes/log';
+import { registerDayRoutes } from './routes/day';
+import { registerSummaryRoutes } from './routes/summary';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -56,6 +58,8 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       registerAuthRoutes(api, opts);
       registerFoodRoutes(api, opts);
       registerLogRoutes(api, opts);
+      registerDayRoutes(api, opts);
+      registerSummaryRoutes(api, opts);
     },
     { prefix: '/api' },
   );

@@ -742,3 +742,250 @@ textarea:focus {
 .toast-warn {
   background: var(--warn-dim);
 }
+
+/* ---------- eating window ---------- */
+
+.win {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.win-track {
+  position: relative;
+  height: 26px;
+  background: var(--surface-2);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* The 9am–7pm target, drawn behind the actual window. */
+.win-target {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-left: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+  border-right: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.win-actual {
+  position: absolute;
+  top: 7px;
+  height: 12px;
+  border-radius: 999px;
+  min-width: 4px;
+}
+
+.win-ok {
+  background: var(--accent);
+}
+
+.win-bad {
+  background: var(--warn);
+}
+
+.win-labels {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.win-late {
+  color: var(--warn);
+}
+
+/* ---------- stats ---------- */
+
+.stat-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.stat {
+  flex: 1;
+  background: var(--surface-2);
+  border-radius: 10px;
+  padding: 11px 8px;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 620;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.stat-warn {
+  color: var(--warn);
+}
+
+.stat-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+  margin-top: 3px;
+}
+
+/* ---------- check-in ---------- */
+
+.checks {
+  display: flex;
+  flex-direction: column;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 0;
+  cursor: pointer;
+}
+
+.check-readonly {
+  cursor: default;
+}
+
+/* The real checkbox stays in the DOM for keyboard and screen readers. */
+.check input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.check-box {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 7px;
+  border: 1.5px solid var(--border);
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--accent);
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.check input:checked + .check-box {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+.check input:focus-visible + .check-box {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.check-label {
+  font-size: 15px;
+}
+
+.check-done {
+  color: var(--text-dim);
+}
+
+.check-auto-ok {
+  color: var(--accent);
+  border-style: dashed;
+}
+
+.check-auto-bad {
+  color: var(--warn);
+  border-style: dashed;
+}
+
+.check-unknown {
+  color: var(--text-faint);
+  border-style: dashed;
+}
+
+/* ---------- inline day inputs ---------- */
+
+.inline-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.inline-label {
+  font-size: 14px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.inline-input {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.inline-unit {
+  position: absolute;
+  right: 14px;
+  font-size: 13px;
+  color: var(--text-faint);
+  pointer-events: none;
+}
+
+.inline-input input {
+  padding-right: 34px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sleep-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sleep-row .inline-field {
+  flex: 1;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+}
+
+.sleep-row .inline-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+}
+
+.sleep-total {
+  min-width: 46px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  padding-top: 16px;
+}
+
+/* ---------- exercise ---------- */
+
+.ex-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.ex-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.measured {
+  color: var(--accent);
+}

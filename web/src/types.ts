@@ -68,6 +68,68 @@ export interface FoodLogEntry {
   processed_flags: string[];
 }
 
+export interface ExerciseEntry {
+  id: number;
+  local_day: string;
+  logged_at: number;
+  activity: string;
+  minutes: number;
+  kcal: number;
+  source: 'estimated' | 'measured';
+  note: string | null;
+}
+
+export interface Activity {
+  id: string;
+  label: string;
+  met: number;
+}
+
+export interface DayEntry {
+  local_day: string;
+  weight_lb: number | null;
+  sleep_start: number | null;
+  sleep_end: number | null;
+  reviewed_morning: boolean;
+  reviewed_night: boolean;
+  no_meat: boolean;
+  no_dairy: boolean;
+  note: string | null;
+  sleep_hours: number | null;
+}
+
+/** Everything the Today screen needs, from one request. */
+export interface DaySummary {
+  date: string;
+  food: {
+    entries: FoodLogEntry[];
+    totals: { kcal: number; protein_g: number; fat_g: number; carb_g: number };
+    macros: { protein: number; fat: number; carb: number };
+    budget: number;
+    remaining: number;
+  };
+  exercise: {
+    entries: ExerciseEntry[];
+    total: number;
+    estimated: number;
+    measured: number;
+    measuredShare: number;
+    target: number;
+  };
+  net: { net: number; tooLow: boolean };
+  window: {
+    first: string | null;
+    last: string | null;
+    spanMinutes: number | null;
+    startedOnTime: boolean | null;
+    endedOnTime: boolean | null;
+    compliant: boolean | null;
+    target_start: string;
+    target_end: string;
+  };
+  day: DayEntry;
+}
+
 export interface SearchResults {
   saved: Food[];
   usda: UsdaFood[];

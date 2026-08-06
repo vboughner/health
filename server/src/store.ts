@@ -292,3 +292,249 @@ export function deleteFoodLog(db: Db, userId: number, id: number): boolean {
     db.prepare('DELETE FROM food_log WHERE user_id = ? AND id = ?').run(userId, id).changes > 0
   );
 }
+
+// ---------------------------------------------------------------- exercise log
+
+export interface ExerciseEntry {
+  id: number;
+  local_day: string;
+  logged_at: number;
+  activity: string;
+  minutes: number;
+  kcal: number;
+  source: 'estimated' | 'measured';
+  note: string | null;
+}
+
+export type NewExercise = Omit<ExerciseEntry, 'id'>;
+
+export function insertExercise(db: Db, userId: number, entry: NewExercise): number {
+  const info = db
+    .prepare(
+      `INSERT INTO exercise_log (user_id, local_day, logged_at, activity, minutes, kcal, source, note)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      userId,
+      entry.local_day,
+      entry.logged_at,
+      entry.activity,
+      entry.minutes,
+      entry.kcal,
+      entry.source,
+      entry.note,
+    );
+
+  return Number(info.lastInsertRowid);
+}
+
+export function listExercise(db: Db, userId: number, localDay: string): ExerciseEntry[] {
+  return db
+    .prepare(
+      `SELECT id, local_day, logged_at, activity, minutes, kcal, source, note
+       FROM exercise_log
+       WHERE user_id = ? AND local_day = ?
+       ORDER BY logged_at`,
+    )
+    .all(userId, localDay) as ExerciseEntry[];
+}
+
+export function deleteExercise(db: Db, userId: number, id: number): boolean {
+  return (
+    db.prepare('DELETE FROM exercise_log WHERE user_id = ? AND id = ?').run(userId, id).changes > 0
+  );
+}
+
+// ---------------------------------------------------------------- daily entries
+
+export interface DailyEntry {
+  local_day: string;
+  weight_lb: number | null;
+  sleep_start: number | null;
+  sleep_end: number | null;
+  reviewed_morning: boolean;
+  reviewed_night: boolean;
+  no_meat: boolean;
+  no_dairy: boolean;
+  note: string | null;
+}
+
+export type DailyEntryPatch = Partial<Omit<DailyEntry, 'local_day'>>;
+
+const DAILY_FIELDS = [
+  'weight_lb',
+  'sleep_start',
+  'sleep_end',
+  'reviewed_morning',
+  'reviewed_night',
+  'no_meat',
+  'no_dairy',
+  'note',
+] as const;
+
+const BOOLEAN_FIELDS = new Set(['reviewed_morning', 'reviewed_night', 'no_meat', 'no_dairy']);
+
+interface DailyRow {
+  local_day: string;
+  weight_lb: number | null;
+  sleep_start: number | null;
+  sleep_end: number | null;
+  reviewed_morning: number;
+  reviewed_night: number;
+  no_meat: number;
+  no_dairy: number;
+  note: string | null;
+}
+
+/** An untouched day reads as all-blank rather than absent, so callers need no branch. */
+export function getDailyEntry(db: Db, userId: number, localDay: string): DailyEntry {
+  const row = db
+    .prepare(
+      `SELECT local_day, weight_lb, sleep_start, sleep_end, reviewed_morning,
+              reviewed_night, no_meat, no_dairy, note
+       FROM daily_entries WHERE user_id = ? AND local_day = ?`,
+    )
+    .get(userId, localDay) as DailyRow | undefined;
+
+  if (!row) {
+    return {
+      local_day: localDay,
+      weight_lb: null,
+      sleep_start: null,
+      sleep_end: null,
+      reviewed_morning: false,
+      reviewed_night: false,
+      no_meat: false,
+      no_dairy: false,
+      note: null,
+    };
+  }
+
+  return {
+    ...row,
+    reviewed_morning: !!row.reviewed_morning,
+    reviewed_night: !!row.reviewed_night,
+    no_meat: !!row.no_meat,
+    no_dairy: !!row.no_dairy,
+  };
+}
+
+/**
+ * Update only the fields present in the patch, leaving the rest alone. Ticking one
+ * check-in box must not blank out the weight typed a moment earlier.
+ */
+export function upsertDailyEntry(
+  db: Db,
+  userId: number,
+  localDay: string,
+  patch: DailyEntryPatch,
+): DailyEntry {
+  const fields = DAILY_FIELDS.filter((f) => patch[f] !== undefined);
+
+  db.prepare(
+    'INSERT OR IGNORE INTO daily_entries (user_id, local_day, updated_at) VALUES (?, ?, ?)',
+  ).run(userId, localDay, Date.now());
+
+  if (fields.length > 0) {
+    const assignments = fields.map((f) => `${f} = ?`).join(', ');
+    const values = fields.map((f) => {
+      const value = patch[f];
+      if (BOOLEAN_FIELDS.has(f)) return value ? 1 : 0;
+      return value ?? null;
+    });
+
+    db.prepare(
+      `UPDATE daily_entries SET ${assignments}, updated_at = ? WHERE user_id = ? AND local_day = ?`,
+    ).run(...values, Date.now(), userId, localDay);
+  }
+
+  return getDailyEntry(db, userId, localDay);
+}
+
+/**
+ * The most recent recorded weight on or before a day, used to scale the MET
+ * estimate. Falls back to nothing rather than to a guess.
+ */
+export function latestWeight(db: Db, userId: number, onOrBefore: string): number | null {
+  const row = db
+    .prepare(
+      `SELECT weight_lb FROM daily_entries
+       WHERE user_id = ? AND local_day <= ? AND weight_lb IS NOT NULL
+       ORDER BY local_day DESC LIMIT 1`,
+    )
+    .get(userId, onOrBefore) as { weight_lb: number } | undefined;
+
+  return row?.weight_lb ?? null;
+}
+
+// ---------------------------------------------------------------- trends
+
+export interface DayTotals {
+  local_day: string;
+  kcal: number;
+  protein_g: number;
+  fat_g: number;
+  carb_g: number;
+  first_eaten_at: number | null;
+  last_eaten_at: number | null;
+  entry_count: number;
+}
+
+/** Per-day food totals over a range, for the trend charts. Days with nothing logged are absent. */
+export function foodTotalsByDay(db: Db, userId: number, from: string, to: string): DayTotals[] {
+  return db
+    .prepare(
+      `SELECT local_day,
+              SUM(kcal) AS kcal, SUM(protein_g) AS protein_g,
+              SUM(fat_g) AS fat_g, SUM(carb_g) AS carb_g,
+              MIN(eaten_at) AS first_eaten_at, MAX(eaten_at) AS last_eaten_at,
+              COUNT(*) AS entry_count
+       FROM food_log
+       WHERE user_id = ? AND local_day BETWEEN ? AND ?
+       GROUP BY local_day
+       ORDER BY local_day`,
+    )
+    .all(userId, from, to) as DayTotals[];
+}
+
+export function burnByDay(
+  db: Db,
+  userId: number,
+  from: string,
+  to: string,
+): { local_day: string; kcal: number; minutes: number }[] {
+  return db
+    .prepare(
+      `SELECT local_day, SUM(kcal) AS kcal, SUM(minutes) AS minutes
+       FROM exercise_log
+       WHERE user_id = ? AND local_day BETWEEN ? AND ?
+       GROUP BY local_day
+       ORDER BY local_day`,
+    )
+    .all(userId, from, to) as { local_day: string; kcal: number; minutes: number }[];
+}
+
+export function dailyEntriesInRange(
+  db: Db,
+  userId: number,
+  from: string,
+  to: string,
+): DailyEntry[] {
+  const rows = db
+    .prepare(
+      `SELECT local_day, weight_lb, sleep_start, sleep_end, reviewed_morning,
+              reviewed_night, no_meat, no_dairy, note
+       FROM daily_entries
+       WHERE user_id = ? AND local_day BETWEEN ? AND ?
+       ORDER BY local_day`,
+    )
+    .all(userId, from, to) as DailyRow[];
+
+  return rows.map((row) => ({
+    ...row,
+    reviewed_morning: !!row.reviewed_morning,
+    reviewed_night: !!row.reviewed_night,
+    no_meat: !!row.no_meat,
+    no_dairy: !!row.no_dairy,
+  }));
+}
