@@ -1,0 +1,36 @@
+{
+  "name": "health-server",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc && npm run copy-migrations",
+    "copy-migrations": "mkdir -p dist/migrations && cp src/migrations/*.sql dist/migrations/ && node -e \"const fs=require('fs');const a=fs.readdirSync('src/migrations').filter(f=>f.endsWith('.sql'));const b=fs.readdirSync('dist/migrations');const missing=a.filter(f=>!b.includes(f));if(missing.length){console.error('Migrations missing from dist:',missing);process.exit(1)}console.log('migrations: '+a.length+' copied to dist')\"",
+    "start": "node dist/main.js",
+    "create-user": "tsx src/scripts/create-user.ts",
+    "lint": "eslint src",
+    "format": "prettier --write src",
+    "format:check": "prettier --check src",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "@node-rs/argon2": "^2.0.2",
+    "better-sqlite3": "^11.8.1",
+    "dotenv": "^16.4.7",
+    "fastify": "^5.2.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "eslint": "^10.0.3",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.57.0",
+    "vitest": "^3.2.4"
+  }
+}

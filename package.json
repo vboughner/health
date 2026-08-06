@@ -1,0 +1,14 @@
+{
+  "name": "health",
+  "private": true,
+  "scripts": {
+    "test": "npm test --prefix server && npm test --prefix web",
+    "test:server": "npm test --prefix server",
+    "test:web": "npm test --prefix web",
+    "lint": "npm run lint --prefix server && npm run lint --prefix web",
+    "format": "npm run format --prefix server && npm run format --prefix web",
+    "format:check": "npm run format:check --prefix server && npm run format:check --prefix web",
+    "build": "npm run build --prefix server && npm run build --prefix web",
+    "check": "npm test && npm run lint && npm run format:check"
+  }
+}
