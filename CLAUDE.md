@@ -10,7 +10,7 @@ alongside the Griljor game and the blog.
 ## Commands
 
 ```sh
-./dev.sh                          # start API (:3200) + web (:5174) together
+./dev.sh                          # start API (:4300) + web (:5174) together
 npm run check                     # tests + lint + format check — must pass before committing
 npm test                          # vitest, server + web
 npm run lint                      # eslint, server + web
@@ -29,7 +29,7 @@ To use it from your phone on the same wifi: `./dev.sh`, then open
 
 Two packages, mirroring the `server/` + `client/` split in the griljor repo.
 
-- **`server/`** — Fastify + better-sqlite3, TypeScript, CommonJS, port 3200.
+- **`server/`** — Fastify + better-sqlite3, TypeScript, CommonJS, port 4300.
   - `src/domain/` — **pure functions, no I/O**. All the interesting math lives here and is
     unit tested without a server or database: serving→calorie math, macro percentages, the
     MET exercise estimate, the processed-food classifier, day boundaries and eating-window
@@ -40,7 +40,7 @@ Two packages, mirroring the `server/` + `client/` split in the griljor repo.
   - `src/usda.ts` — FoodData Central client behind an interface so tests use a fake.
     **The test suite never hits the network.**
 - **`web/`** — Vite + React + TypeScript, ESM. Built to `web/dist/`, served by nginx in
-  production. The dev server proxies `/api` to :3200 so cookies behave the same in both.
+  production. The dev server proxies `/api` to :4300 so cookies behave the same in both.
   - `src/components/charts.tsx` — hand-rolled inline SVG, no chart library. Bars are
     zero-based on purpose; a truncated baseline makes a 1200-calorie day look like a
     fraction of a 2000-calorie one.
@@ -73,7 +73,7 @@ Two packages, mirroring the `server/` + `client/` split in the griljor repo.
 
 ## Deployment
 
-See [`docs/deployment.md`](docs/deployment.md). Short version: PM2 app `health` on port 3200,
+See [`docs/deployment.md`](docs/deployment.md). Short version: PM2 app `health` on port 4300,
 nginx serves `web/dist` and proxies `/api`, database lives outside the repo at
 `/home/griljor/health-data/app.db`.
 

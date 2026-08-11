@@ -1,5 +1,13 @@
 /** Calories eaten against the day's budget, with the remainder called out. */
-export function CalorieHeader({ eaten, budget }: { eaten: number; budget: number }) {
+export function CalorieHeader({
+  eaten,
+  budget,
+  isToday = true,
+}: {
+  eaten: number;
+  budget: number;
+  isToday?: boolean;
+}) {
   const remaining = Math.round(budget - eaten);
   const pct = budget > 0 ? Math.min(100, (eaten / budget) * 100) : 0;
   const over = remaining < 0;
@@ -15,7 +23,10 @@ export function CalorieHeader({ eaten, budget }: { eaten: number; budget: number
           <div className={`kcal-big ${over ? 'kcal-over' : ''}`}>
             {over ? `+${Math.abs(remaining)}` : remaining}
           </div>
-          <div className="kcal-label">{over ? 'over budget' : 'left today'}</div>
+          {/* "left today" is wrong when you're looking back at a finished day. */}
+          <div className="kcal-label">
+            {over ? 'over budget' : isToday ? 'left today' : 'under budget'}
+          </div>
         </div>
       </div>
 

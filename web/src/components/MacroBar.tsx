@@ -31,33 +31,23 @@ export function MacroBar({
 
       {!compact && (
         <div className="macro-legend">
-          <Legend color="protein" label="Protein" pct={split.protein} grams={protein_g} />
-          <Legend color="fat" label="Fat" pct={split.fat} grams={fat_g} />
-          <Legend color="carb" label="Carbs" pct={split.carb} grams={carb_g} />
+          <Legend color="protein" label="Protein" pct={split.protein} />
+          <Legend color="fat" label="Fat" pct={split.fat} />
+          <Legend color="carb" label="Carbs" pct={split.carb} />
         </div>
       )}
     </div>
   );
 }
 
-function Legend({
-  color,
-  label,
-  pct,
-  grams,
-}: {
-  color: string;
-  label: string;
-  pct: number;
-  grams: number;
-}) {
+// Percentages only — the gram figures made this too wide for a phone, and the
+// calorie split is what the diet is actually judged on.
+function Legend({ color, label, pct }: { color: string; label: string; pct: number }) {
   return (
     <div className="macro-legend-item">
       <span className={`macro-dot macro-${color}`} />
       <span className="macro-legend-label">{label}</span>
-      <span className="macro-legend-value">
-        {Math.round(pct)}%<span className="faint"> · {Math.round(grams)}g</span>
-      </span>
+      <span className="macro-legend-value">{Math.round(pct)}%</span>
     </div>
   );
 }

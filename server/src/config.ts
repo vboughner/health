@@ -30,7 +30,7 @@ function requireSessionSecret(): string {
 
 export const config = {
   isProduction,
-  port: Number(process.env.PORT ?? 3200),
+  port: Number(process.env.PORT ?? 4300),
   dbPath: resolveDbPath(process.env.DB_PATH ?? './data/app.db'),
   sessionSecret: requireSessionSecret(),
   usdaApiKey: process.env.USDA_API_KEY ?? '',

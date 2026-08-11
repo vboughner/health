@@ -1,14 +1,26 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api';
+import { shortDayLabel } from '../dates';
 import type { Food, Pickable, SearchResults } from '../types';
 import { isSaved } from '../types';
 import { FoodRow } from '../components/FoodRow';
 import { LogSheet } from '../components/LogSheet';
 import { ManualFood } from '../components/ManualFood';
+import { DayNav } from '../components/DayNav';
 
 const MIN_QUERY = 2;
 
-export function AddFood({ onLogged }: { onLogged: () => void }) {
+export function AddFood({
+  date,
+  today,
+  onChangeDate,
+  onLogged,
+}: {
+  date: string;
+  today: string;
+  onChangeDate: (day: string) => void;
+  onLogged: () => void;
+}) {
   const [query, setQuery] = useState('');
   // Results carry the query they belong to, so a stale response for an older query
   // is simply not rendered rather than needing to be cleared.
@@ -81,6 +93,15 @@ export function AddFood({ onLogged }: { onLogged: () => void }) {
 
   return (
     <div className="stack">
+      {date !== today && (
+        <>
+          <div className="note tiny">
+            Adding food to <strong>{shortDayLabel(date, today)}</strong>, not today.
+          </div>
+          <DayNav date={date} today={today} onChange={onChangeDate} />
+        </>
+      )}
+
       <input
         type="search"
         placeholder="Search foods…"
@@ -115,12 +136,21 @@ export function AddFood({ onLogged }: { onLogged: () => void }) {
         <LogSheet
           food={picked}
           flags={isSaved(picked) ? picked.processed_flags : []}
+          date={date}
+          today={today}
           onClose={() => setPicked(null)}
           onLogged={handleLogged}
         />
       )}
 
-      {manual && <ManualFood onClose={() => setManual(false)} onLogged={handleLogged} />}
+      {manual && (
+        <ManualFood
+          date={date}
+          today={today}
+          onClose={() => setManual(false)}
+          onLogged={handleLogged}
+        />
+      )}
     </div>
   );
 }

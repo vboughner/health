@@ -1001,8 +1001,9 @@ textarea:focus {
 
 .ex-fields {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 118px;
   gap: 10px;
+  align-items: center;
 }
 
 .measured {
@@ -1193,4 +1194,105 @@ textarea:focus {
 .seg-inline .seg-btn {
   padding: 7px 12px;
   font-size: 12px;
+}
+
+/* ---------- day navigation ---------- */
+
+.daynav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 5px 6px;
+}
+
+.daynav-arrow {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--text-dim);
+  background: var(--surface-2);
+}
+
+.daynav-arrow:active {
+  opacity: 0.6;
+}
+
+.daynav-arrow:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* The label is a <label> wrapping a real date input, so tapping it opens the
+   phone's own picker. The input itself is invisible but still hit-testable. */
+.daynav-label {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 4px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.daynav-label input[type='date'] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  padding: 0;
+  border: none;
+  cursor: pointer;
+}
+
+.daynav-past {
+  color: var(--warn);
+}
+
+.daynav-date {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.daynav-today {
+  flex-shrink: 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--surface-2);
+}
+
+.daynav-today:disabled {
+  opacity: 0;
+  /* Keeps the row from reflowing as you step on and off today. */
+  pointer-events: none;
+}
+
+/* ---------- time-of-eating row ---------- */
+
+.when-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.when-row input {
+  flex: 0 1 150px;
+  margin-left: auto;
 }

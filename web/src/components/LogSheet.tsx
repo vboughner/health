@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { api } from '../api';
 import { preview } from '../nutrition';
+import { atTimeOn, nowTime, shortDayLabel } from '../dates';
 import { isSaved, type Pickable, type Unit } from '../types';
 import { MacroBar } from './MacroBar';
 
@@ -10,6 +11,9 @@ const UNITS: { id: Unit; label: string }[] = [
   { id: 'oz', label: 'oz' },
 ];
 
+/** Midday, for backfilling a day where the actual time isn't remembered. */
+const DEFAULT_BACKFILL_TIME = '12:00';
+
 /**
  * Bottom sheet for choosing how much of a food to log, with a live preview of what
  * it costs. The server recomputes on save — the preview is only there so the choice
@@ -18,17 +22,27 @@ const UNITS: { id: Unit; label: string }[] = [
 export function LogSheet({
   food,
   flags = [],
+  date,
+  today,
   onClose,
   onLogged,
 }: {
   food: Pickable;
   flags?: string[];
+  /** The day being logged to. */
+  date: string;
+  today: string;
   onClose: () => void;
   onLogged: (warning: string | null) => void;
 }) {
   const hasServing = !!food.serving_grams && food.serving_grams > 0;
+  const isBackfill = date !== today;
+
   const [unit, setUnit] = useState<Unit>(hasServing ? 'serving' : 'g');
   const [quantity, setQuantity] = useState(hasServing ? '1' : '100');
+  // The eating-window stat is derived from these timestamps, so the time matters
+  // as much as the amount. Prefilled with now, or midday when backfilling.
+  const [time, setTime] = useState(isBackfill ? DEFAULT_BACKFILL_TIME : nowTime());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -40,9 +54,10 @@ export function LogSheet({
     setBusy(true);
     setError('');
     try {
+      const when = { eaten_at: atTimeOn(date, time || DEFAULT_BACKFILL_TIME) };
       const body = isSaved(food)
-        ? { food_id: food.id, quantity: amount, unit }
-        : { food: { source: 'usda' as const, ...food }, quantity: amount, unit };
+        ? { food_id: food.id, quantity: amount, unit, ...when }
+        : { food: { source: 'usda' as const, ...food }, quantity: amount, unit, ...when };
 
       const res = await api.post<{ warning: string | null }>('/log/food', body);
       onLogged(res.warning);
@@ -98,6 +113,16 @@ export function LogSheet({
         {!hasServing && unit === 'serving' && (
           <div className="tiny faint">No serving size on record — log this one by weight.</div>
         )}
+
+        <div className="when-row">
+          <span className="inline-label">Eaten {shortDayLabel(date, today)} at</span>
+          <input
+            type="time"
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+            aria-label="Time eaten"
+          />
+        </div>
 
         {p ? (
           <div className="preview">

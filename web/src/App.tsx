@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api, ApiError } from './api';
+import { todayIn } from './dates';
 import type { User } from './types';
 import { Login } from './screens/Login';
 import { Today } from './screens/Today';
@@ -9,7 +10,7 @@ import { Trends } from './screens/Trends';
 type Tab = 'today' | 'add' | 'trends';
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'today', label: 'Today', icon: '◎' },
+  { id: 'today', label: 'Day', icon: '◎' },
   { id: 'add', label: 'Add food', icon: '＋' },
   { id: 'trends', label: 'Trends', icon: '▨' },
 ];
@@ -18,13 +19,19 @@ export function App() {
   const [user, setUser] = useState<User | null>(null);
   const [checking, setChecking] = useState(true);
   const [tab, setTab] = useState<Tab>('today');
-  // Bumped whenever something is logged, so Today reloads when switched back to.
+  // Bumped whenever something is logged, so screens reload when switched back to.
   const [refreshKey, setRefreshKey] = useState(0);
+  // The day being viewed and logged to. Shared across tabs so that picking a past
+  // day and then adding food puts the food on that day, not on today.
+  const [date, setDate] = useState<string | null>(null);
 
   useEffect(() => {
     api
       .me()
-      .then(({ user }) => setUser(user))
+      .then(({ user }) => {
+        setUser(user);
+        setDate(todayIn(user.timezone));
+      })
       .catch((err) => {
         // 401 just means "not logged in yet" — anything else is worth seeing.
         if (!(err instanceof ApiError && err.status === 401)) console.error(err);
@@ -39,6 +46,11 @@ export function App() {
 
   const handleLogged = useCallback(() => setRefreshKey((k) => k + 1), []);
 
+  function handleLoggedIn(next: User) {
+    setUser(next);
+    setDate(todayIn(next.timezone));
+  }
+
   if (checking) {
     return (
       <div className="center-screen">
@@ -47,13 +59,28 @@ export function App() {
     );
   }
 
-  if (!user) return <Login onLoggedIn={setUser} />;
+  if (!user || !date) return <Login onLoggedIn={handleLoggedIn} />;
+
+  // Recomputed on render rather than stored, so leaving the app open past
+  // midnight doesn't leave "Today" pointing at yesterday.
+  const today = todayIn(user.timezone);
 
   return (
     <div className="app">
       <main className="app-main">
-        {tab === 'today' && <Today user={user} refreshKey={refreshKey} onLogout={logout} />}
-        {tab === 'add' && <AddFood onLogged={handleLogged} />}
+        {tab === 'today' && (
+          <Today
+            user={user}
+            date={date}
+            today={today}
+            onChangeDate={setDate}
+            refreshKey={refreshKey}
+            onLogout={logout}
+          />
+        )}
+        {tab === 'add' && (
+          <AddFood date={date} today={today} onChangeDate={setDate} onLogged={handleLogged} />
+        )}
         {tab === 'trends' && <Trends refreshKey={refreshKey} />}
       </main>
 

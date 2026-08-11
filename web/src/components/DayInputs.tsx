@@ -82,19 +82,21 @@ export function SleepInput({
 }
 
 /**
- * Log a workout. Duration gives an estimate from the MET table; the watch field
- * overrides it and marks the entry as measured rather than guessed.
+ * Log a workout: activity and duration. Calories come from the MET table scaled
+ * by current body weight.
+ *
+ * The API still accepts an explicit calorie figure and tags it as measured, but
+ * the form no longer asks — one number and one dropdown is the whole interaction.
  */
 export function ExerciseInput({
   activities,
   onAdd,
 }: {
   activities: Activity[];
-  onAdd: (activity: string, minutes: number, kcal?: number) => Promise<void>;
+  onAdd: (activity: string, minutes: number) => Promise<void>;
 }) {
   const [activity, setActivity] = useState('running');
   const [minutes, setMinutes] = useState('');
-  const [kcal, setKcal] = useState('');
   const [busy, setBusy] = useState(false);
 
   const canAdd = Number(minutes) > 0 && !busy;
@@ -102,14 +104,8 @@ export function ExerciseInput({
   async function add() {
     setBusy(true);
     try {
-      const watch = Number(kcal);
-      await onAdd(
-        activity,
-        Number(minutes),
-        Number.isFinite(watch) && watch > 0 ? watch : undefined,
-      );
+      await onAdd(activity, Number(minutes));
       setMinutes('');
-      setKcal('');
     } finally {
       setBusy(false);
     }
@@ -117,35 +113,29 @@ export function ExerciseInput({
 
   return (
     <div className="ex-form">
-      <select value={activity} onChange={(e) => setActivity(e.target.value)} aria-label="Activity">
-        {activities.map((a) => (
-          <option key={a.id} value={a.id}>
-            {a.label}
-          </option>
-        ))}
-      </select>
-
       <div className="ex-fields">
-        <label className="field">
-          <span className="field-label">Minutes</span>
+        <select
+          value={activity}
+          onChange={(e) => setActivity(e.target.value)}
+          aria-label="Activity"
+        >
+          {activities.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.label}
+            </option>
+          ))}
+        </select>
+        <label className="inline-input">
           <input
             type="number"
             inputMode="numeric"
             min="0"
+            placeholder="minutes"
+            aria-label="Minutes"
             value={minutes}
             onChange={(e) => setMinutes(e.target.value)}
           />
-        </label>
-        <label className="field">
-          <span className="field-label">From watch</span>
-          <input
-            type="number"
-            inputMode="numeric"
-            min="0"
-            placeholder="estimate"
-            value={kcal}
-            onChange={(e) => setKcal(e.target.value)}
-          />
+          <span className="inline-unit">min</span>
         </label>
       </div>
 
@@ -175,10 +165,7 @@ export function ExerciseList({
         <div key={e.id} className="entry">
           <div className="entry-main">
             <div className="entry-name">{label(e.activity)}</div>
-            <div className="entry-detail">
-              {e.minutes} min ·{' '}
-              {e.source === 'measured' ? <span className="measured">from watch</span> : 'estimated'}
-            </div>
+            <div className="entry-detail">{e.minutes} min</div>
           </div>
           <div className="entry-kcal">{Math.round(e.kcal)}</div>
           <button

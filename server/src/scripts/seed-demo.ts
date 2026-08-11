@@ -187,14 +187,34 @@ function main() {
     process.exit(1);
   }
 
+  // The range is anchored to the day this runs, so seeded history goes stale as
+  // soon as the date moves on. Clearing first makes re-running the normal way to
+  // refresh it, instead of stacking a second copy on top of the overlapping days.
+  const cleared = db.transaction(() => ({
+    food: db.prepare('DELETE FROM food_log WHERE user_id = ?').run(user.id).changes,
+    exercise: db.prepare('DELETE FROM exercise_log WHERE user_id = ?').run(user.id).changes,
+    days: db.prepare('DELETE FROM daily_entries WHERE user_id = ?').run(user.id).changes,
+  }))();
+
+  if (cleared.food || cleared.exercise || cleared.days) {
+    console.log(
+      `Cleared ${cleared.food} food, ${cleared.exercise} exercise, ${cleared.days} day rows for "${username}".`,
+    );
+  }
+
   const foodIds = new Map(
     [...FOODS, TREAT].map((f) => [f.source_id!, upsertFood(db, user.id, f).id]),
   );
 
-  const random = rng(20260806);
+  // Seeded from the run date so a re-run on a new day reshuffles rather than
+  // reproducing the identical six weeks shifted along by one.
+  const random = rng(Number(localDay(Date.now(), user.timezone).replace(/-/g, '')));
   let weight = 196.4;
 
+  const nowHour = new Date().getHours();
+
   for (let back = DAYS - 1; back >= 0; back--) {
+    const isToday = back === 0;
     const dayMs = Date.now() - back * 86_400_000;
     const day = localDay(dayMs, user.timezone);
     const midnight = new Date(dayMs);
@@ -204,9 +224,9 @@ function main() {
     weight -= 0.5 / 7;
     const reading = Math.round((weight + (random() - 0.5) * 2) * 10) / 10;
 
-    // Two days in six get skipped entirely — real logs have gaps.
-    const skipped = random() < 0.12;
-    if (skipped) continue;
+    // Two days in six get skipped entirely — real logs have gaps. Never today,
+    // though: an empty Today screen is the one thing this script exists to avoid.
+    if (!isToday && random() < 0.12) continue;
 
     const lateNight = random() < 0.18;
     const hasTreat = random() < 0.15;
@@ -215,6 +235,10 @@ function main() {
       if (random() < 0.25) continue; // not everything every day
 
       const hour = food === TREAT && !lateNight ? 18 : food.hour;
+
+      // Today is a day in progress — don't log dinner at ten in the morning.
+      if (isToday && hour > nowHour) continue;
+
       const eatenAt = new Date(midnight).setHours(hour, Math.floor(random() * 55));
       const grams = Math.round(food.grams * (0.8 + random() * 0.4));
 
@@ -249,19 +273,21 @@ function main() {
       sleep_start: sleepStart,
       sleep_end: sleepEnd,
       reviewed_morning: random() < 0.85,
-      reviewed_night: random() < 0.8,
+      // Tonight's review hasn't happened yet if it's still afternoon.
+      reviewed_night: isToday ? nowHour >= 21 && random() < 0.8 : random() < 0.8,
       no_meat: true,
       no_dairy: random() < 0.93,
     });
 
+    const WORKOUT_HOUR = 17;
     const workout = WORKOUTS[new Date(dayMs).getDay()];
-    if (workout && random() < 0.85) {
+    if (workout && random() < 0.85 && !(isToday && nowHour < WORKOUT_HOUR)) {
       const measured = random() < 0.4;
       const estimate = estimateKcal(workout.activity, workout.minutes, reading);
 
       insertExercise(db, user.id, {
         local_day: day,
-        logged_at: new Date(midnight).setHours(17, 30),
+        logged_at: new Date(midnight).setHours(WORKOUT_HOUR, 30),
         activity: workout.activity,
         minutes: workout.minutes,
         kcal: measured ? Math.round(estimate * (0.85 + random() * 0.3)) : estimate,

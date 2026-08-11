@@ -9,9 +9,13 @@ import { LogSheet } from './LogSheet';
  * quick picks afterwards.
  */
 export function ManualFood({
+  date,
+  today,
   onClose,
   onLogged,
 }: {
+  date: string;
+  today: string;
   onClose: () => void;
   onLogged: (warning: string | null) => void;
 }) {
@@ -51,7 +55,9 @@ export function ManualFood({
   }
 
   if (created) {
-    return <LogSheet food={created} onClose={onClose} onLogged={onLogged} />;
+    return (
+      <LogSheet food={created} date={date} today={today} onClose={onClose} onLogged={onLogged} />
+    );
   }
 
   return (

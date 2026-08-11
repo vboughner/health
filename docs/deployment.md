@@ -9,7 +9,7 @@ additive — no existing nginx block, PM2 process, or port changes.
 
 | | |
 |---|---|
-| Port | **3200** (3000 is the griljor lobby, 3001–3007 are game servers, and local griljor worktrees offset into 31xx) |
+| Port | **4300** — deliberately out of the 3xxx range: griljor holds 3000–3007 on the VPS, and each local griljor worktree claims the next 3N00 (3100, 3200, …) |
 | PM2 app | `health` |
 | Repo on VPS | `/home/griljor/health` |
 | Database | `/home/griljor/health-data/app.db` — **outside the repo** |
@@ -49,7 +49,7 @@ cat > ~/health-data/.env <<EOF
 DB_PATH=/home/griljor/health-data/app.db
 SESSION_SECRET=$(openssl rand -hex 32)
 USDA_API_KEY=<your key>
-PORT=3200
+PORT=4300
 NODE_ENV=production
 EOF
 chmod 600 ~/health-data/.env
@@ -72,7 +72,7 @@ server {
     }
 
     location /api/ {
-        proxy_pass http://127.0.0.1:3200;
+        proxy_pass http://127.0.0.1:4300;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

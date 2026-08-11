@@ -11,11 +11,12 @@ module.exports = {
     {
       name: 'health',
       script: 'dist/main.js',
-      // 3000 is the griljor lobby, 3001-3007 are its game servers.
+      // 4300, not 3xxx: griljor holds 3000-3007 here and each local griljor
+      // worktree claims the next 3N00.
       env: {
         NODE_ENV: 'production',
         ENV_FILE,
-        PORT: 3200,
+        PORT: 4300,
       },
       max_memory_restart: '300M',
       // The database is SQLite in WAL mode — a second process writing the same

@@ -4,7 +4,7 @@
 #
 #   ./dev.sh          start both, stream logs, Ctrl-C to stop
 #
-# API:  http://localhost:3200
+# API:  http://localhost:4300
 # Web:  http://localhost:5174  (also on your LAN IP, for testing on the phone)
 #
 # The web dev server proxies /api to the API server, so the browser talks to a
@@ -45,7 +45,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-echo "==> Starting API on :3200"
+echo "==> Starting API on :4300"
 npm run dev --prefix "$REPO_DIR/server" &
 
 echo "==> Starting web on :5174"

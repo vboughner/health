@@ -5,15 +5,22 @@ import { CalorieHeader } from '../components/CalorieHeader';
 import { MacroBar } from '../components/MacroBar';
 import { WindowBar } from '../components/WindowBar';
 import { CheckIn } from '../components/CheckIn';
+import { DayNav } from '../components/DayNav';
 import { WarningChip } from '../components/FoodRow';
 import { WeightInput, SleepInput, ExerciseInput, ExerciseList } from '../components/DayInputs';
 
 export function Today({
   user,
+  date,
+  today,
+  onChangeDate,
   refreshKey,
   onLogout,
 }: {
   user: User;
+  date: string;
+  today: string;
+  onChangeDate: (day: string) => void;
   refreshKey: number;
   onLogout: () => void;
 }) {
@@ -26,20 +33,20 @@ export function Today({
     let cancelled = false;
 
     api
-      .get<DaySummary>('/summary/today')
+      .get<DaySummary>(`/summary/${date}`)
       .then((data) => {
         if (cancelled) return;
         setSummary(data);
         setError('');
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load today');
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load that day');
       });
 
     return () => {
       cancelled = true;
     };
-  }, [refreshKey, version]);
+  }, [date, refreshKey, version]);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,43 +65,52 @@ export function Today({
     };
   }, []);
 
-  const reload = () => setVersion((v) => v + 1);
-
   async function act<T>(fn: () => Promise<T>) {
     try {
       await fn();
-      reload();
+      setVersion((v) => v + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'That did not save');
     }
   }
 
-  if (!summary) {
-    return error ? (
-      <div className="error">{error}</div>
-    ) : (
-      <div className="empty">
-        <span className="spinner" />
+  const nav = <DayNav date={date} today={today} onChange={onChangeDate} />;
+
+  // Showing the nav while the day loads keeps arrow-tapping responsive instead of
+  // blanking the whole screen on every step.
+  if (!summary || summary.date !== date) {
+    return (
+      <div className="stack">
+        {nav}
+        {error ? (
+          <div className="error">{error}</div>
+        ) : (
+          <div className="empty">
+            <span className="spinner" />
+          </div>
+        )}
       </div>
     );
   }
 
   const { food, exercise, net, window: win, day } = summary;
-  const patchDay = (patch: Partial<DayEntry>) => act(() => api.put(`/day/${summary.date}`, patch));
+  const patchDay = (patch: Partial<DayEntry>) => act(() => api.put(`/day/${date}`, patch));
 
   return (
     <div className="stack">
       <div className="row">
-        <h1 className="screen-title">Today</h1>
+        <h1 className="screen-title">{date === today ? 'Today' : 'Day'}</h1>
         <button className="btn-ghost tiny" onClick={onLogout}>
           Log out
         </button>
       </div>
 
+      {nav}
+
       {error && <div className="error">{error}</div>}
 
       <div className="card">
-        <CalorieHeader eaten={food.totals.kcal} budget={food.budget} />
+        <CalorieHeader eaten={food.totals.kcal} budget={food.budget} isToday={date === today} />
       </div>
 
       <div className="card">
@@ -116,13 +132,12 @@ export function Today({
         <div className="stat-row">
           <Stat value={exercise.total} label="burned" />
           <Stat value={exercise.target} label="target" dim />
-          <Stat value={net.net} label="net intake" warn={net.tooLow} />
         </div>
 
         {net.tooLow && (
           <div className="warn-banner">
-            Net intake is under 1200 today. On a heavy training day that is worth topping up rather
-            than riding out.
+            Net intake came out under 1200 ({net.net}) after exercise. On a heavy training day that
+            is worth topping up rather than riding out.
           </div>
         )}
 
@@ -134,8 +149,8 @@ export function Today({
 
         <ExerciseInput
           activities={activities}
-          onAdd={(activity, minutes, kcal) =>
-            act(() => api.post('/log/exercise', { activity, minutes, kcal, date: summary.date }))
+          onAdd={(activity, minutes) =>
+            act(() => api.post('/log/exercise', { activity, minutes, date }))
           }
         />
       </div>
@@ -143,8 +158,13 @@ export function Today({
       <div className="card">
         <div className="card-title">Body</div>
         <div className="stack">
-          <WeightInput weight={day.weight_lb} onSave={(lb) => patchDay({ weight_lb: lb })} />
+          <WeightInput
+            key={`w-${date}`}
+            weight={day.weight_lb}
+            onSave={(lb) => patchDay({ weight_lb: lb })}
+          />
           <SleepInput
+            key={`s-${date}`}
             day={day}
             hours={day.sleep_hours}
             onSave={(start, end) => patchDay({ sleep_start: start, sleep_end: end })}
@@ -158,9 +178,9 @@ export function Today({
       </div>
 
       <div className="card">
-        <div className="card-title">Eaten today</div>
+        <div className="card-title">{date === today ? 'Eaten today' : 'Eaten'}</div>
         {food.entries.length === 0 ? (
-          <div className="empty">Nothing logged yet.</div>
+          <div className="empty">Nothing logged.</div>
         ) : (
           <div className="list">
             {food.entries.map((e) => (
@@ -191,22 +211,10 @@ export function Today({
   );
 }
 
-function Stat({
-  value,
-  label,
-  dim = false,
-  warn = false,
-}: {
-  value: number;
-  label: string;
-  dim?: boolean;
-  warn?: boolean;
-}) {
+function Stat({ value, label, dim = false }: { value: number; label: string; dim?: boolean }) {
   return (
     <div className="stat">
-      <div className={`stat-value ${dim ? 'faint' : ''} ${warn ? 'stat-warn' : ''}`}>
-        {Math.round(value)}
-      </div>
+      <div className={`stat-value ${dim ? 'faint' : ''}`}>{Math.round(value)}</div>
       <div className="stat-label">{label}</div>
     </div>
   );

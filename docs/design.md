@@ -25,7 +25,7 @@ So: a phone-friendly PWA, built and used locally first, then deployed to the exi
 Read from `~/dev/griljor` and `~/dev/ai-blog`:
 
 - **VPS**: Hetzner CX22, Ubuntu 24.04, IP `5.78.75.71`, user `griljor`, Node 22, nginx, PM2, certbot. Documented in `~/dev/griljor/docs/vps-infrastructure-guide.md`.
-- **Ports in use**: 3000 (lobby), 3001–3007 (game servers). This app takes **3200**.
+- **Ports in use**: 3000 (lobby), 3001–3007 (game servers). This app takes **4300**.
 - **Patterns to copy**: `griljor/server/ecosystem.config.js` (PM2 app + env), `griljor/scripts/rebuild-restart-production.sh` (build + chmod + restart), `ai-blog/.github/workflows/deploy.yml` (Actions → rsync over `DEPLOY_SSH_KEY`), griljor's eslint/prettier/vitest setup and `client/server` split.
 - **Hard-won lessons to honor**: never overwrite a certbot-modified nginx config from the repo; re-run `chmod -R o+r` on the built front end after every build (the dist dir is recreated); Cloudflare A records stay grey-cloud.
 - **New ground**: this is the first thing on the VPS with a real database. Nothing existing needs to change — the current `hovercloud-redirect` nginx block matches only the apex and `www`, so a new subdomain block won't collide.
@@ -36,7 +36,7 @@ Read from `~/dev/griljor` and `~/dev/ai-blog`:
 
 ```
 ~/dev/health/
-├── server/                 Fastify API + SQLite (TypeScript, port 3200)
+├── server/                 Fastify API + SQLite (TypeScript, port 4300)
 │   ├── src/
 │   │   ├── main.ts         server bootstrap, env config
 │   │   ├── db.ts           better-sqlite3 handle + migration runner
@@ -144,8 +144,8 @@ Each phase ends in something runnable. Tests are written alongside, per the gril
 1. Cloudflare: A record `health` → `5.78.75.71`, **DNS only / grey cloud**.
 2. On the VPS as `griljor`: clone to `~/health`, `npm install && npm run build` in `server/` and `web/`.
 3. Database lives **outside the repo** at `/home/griljor/health-data/app.db` so redeploys can't touch it.
-4. `server/ecosystem.config.js` — one PM2 app `health`, `PORT=3200`, env `DB_PATH`, `SESSION_SECRET`, `USDA_API_KEY`, `NODE_ENV=production`. Secrets come from `/home/griljor/health-data/.env` (never committed).
-5. nginx `/etc/nginx/sites-available/health`: `server_name health.hovercloud.com`, static root `/home/griljor/health/web/dist` with `try_files $uri $uri/ /index.html`, `location /api/ { proxy_pass http://127.0.0.1:3200; }`. Then the griljor `chmod o+x` chain on the path plus `chmod -R o+r` on `web/dist`.
+4. `server/ecosystem.config.js` — one PM2 app `health`, `PORT=4300`, env `DB_PATH`, `SESSION_SECRET`, `USDA_API_KEY`, `NODE_ENV=production`. Secrets come from `/home/griljor/health-data/.env` (never committed).
+5. nginx `/etc/nginx/sites-available/health`: `server_name health.hovercloud.com`, static root `/home/griljor/health/web/dist` with `try_files $uri $uri/ /index.html`, `location /api/ { proxy_pass http://127.0.0.1:4300; }`. Then the griljor `chmod o+x` chain on the path plus `chmod -R o+r` on `web/dist`.
 6. `sudo certbot --nginx -d health.hovercloud.com`. **After this, never copy the repo nginx template over the live file** — edit in place.
 7. `pm2 start ecosystem.config.js && pm2 save`.
 8. Nightly cron: `sqlite3 app.db ".backup /home/griljor/health-data/backups/app-$(date +\%F).db"`, keep 14 days. This is the first real data on the VPS — it needs a backup from day one.
@@ -173,4 +173,4 @@ Each phase ends in something runnable. Tests are written alongside, per the gril
 ## Notes
 
 - The vault note `Personal/Mid-2026 Goals.md` gets a short pointer to the new repo once it exists; the note stays the source of truth for the *goals*, the repo for the *app*.
-- No changes to griljor, ai-blog, or any existing nginx/PM2 config. Port 3200 and a new subdomain keep this fully additive.
+- No changes to griljor, ai-blog, or any existing nginx/PM2 config. Port 4300 and a new subdomain keep this fully additive.
