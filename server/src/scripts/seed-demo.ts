@@ -224,9 +224,12 @@ function main() {
     weight -= 0.5 / 7;
     const reading = Math.round((weight + (random() - 0.5) * 2) * 10) / 10;
 
-    // Two days in six get skipped entirely — real logs have gaps. Never today,
-    // though: an empty Today screen is the one thing this script exists to avoid.
-    if (!isToday && random() < 0.12) continue;
+    // Two days in six get skipped entirely — real logs have gaps. Never today (an
+    // empty Today screen is the thing this script exists to avoid) and never
+    // yesterday, whose bedtime is what today's wake time pairs with to produce the
+    // hours-in-bed figure.
+    const isYesterday = back === 1;
+    if (!isToday && !isYesterday && random() < 0.12) continue;
 
     const lateNight = random() < 0.18;
     const hasTreat = random() < 0.15;
@@ -262,18 +265,20 @@ function main() {
       });
     }
 
-    // Bed that evening, up that morning — two different nights on one record.
-    const sleepStart = new Date(midnight).setHours(
-      22 + Math.floor(random() * 2),
-      Math.floor(random() * 59),
-    );
-    const sleepEnd = new Date(midnight).setHours(6, Math.floor(random() * 55));
+    // Bed that evening, up the next morning — the two fields of one night live on
+    // two different records, so each is stamped on the day it actually happened.
+    // Bedtimes land between 21:30 and 23:30, wake times between 05:50 and 07:00,
+    // which pairs out to roughly 6.5-9 hours a night.
+    const sleepStart = new Date(midnight).setHours(21, 30 + Math.floor(random() * 120));
+    const sleepEnd = new Date(midnight).setHours(5, 50 + Math.floor(random() * 70));
 
     upsertDailyEntry(db, user.id, day, {
       weight_lb: random() < 0.85 ? reading : null,
-      // Tonight's bedtime has not happened yet if it is still afternoon.
-      sleep_start: isToday && nowHour < 22 ? null : sleepStart,
-      sleep_end: sleepEnd,
+      // Tonight's bedtime has not happened yet if it is still early evening.
+      sleep_start: isToday && nowHour < 21 ? null : sleepStart,
+      // Today's wake time is deliberately left blank so it can be set by hand and
+      // watched to update. Every earlier day gets one.
+      sleep_end: isToday ? null : sleepEnd,
       goals_reviewed: random() < 0.8,
       no_meat: true,
       no_dairy: random() < 0.93,
