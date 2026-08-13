@@ -1262,3 +1262,94 @@ textarea:focus {
 .win-rule-reason {
   font-weight: 400;
 }
+
+/* ---------- sleep ---------- */
+
+.sleep {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sleep-block {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.sleep-block .inline-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+}
+
+/* stretch, so the button is exactly as tall as the time input beside it
+   rather than relying on matched padding that drifts apart. */
+.sleep-controls {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.sleep-controls input {
+  flex: 1;
+  min-width: 0;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.sleep-btn {
+  flex: 0 0 132px;
+  padding: 0 10px;
+  font-size: 14px;
+}
+
+.sleep-summary {
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+}
+
+.plan-list {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.plan-list li::marker {
+  color: var(--accent);
+}
+
+.reviewed-note {
+  background: var(--accent-dim);
+  color: var(--text);
+  border-radius: 11px;
+  padding: 13px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Wrapper around the day's cards, so stepping between days can cross-fade
+   instead of collapsing the page to a spinner and back. */
+.day-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: opacity 0.18s ease;
+}
+
+.day-body-stale {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .day-body {
+    transition: none;
+  }
+}

@@ -44,7 +44,7 @@ describe('daily entry and summary', () => {
       eaten_at: at(hhmm),
     });
 
-  describe('weight, sleep, and check-in', () => {
+  describe('weight, sleep, and goal review', () => {
     it('starts blank for an untouched day', async () => {
       const res = await get(`/api/day/${DAY}`);
 
@@ -53,8 +53,7 @@ describe('daily entry and summary', () => {
         weight_lb: null,
         sleep_start: null,
         sleep_end: null,
-        reviewed_morning: false,
-        reviewed_night: false,
+        goals_reviewed: false,
         no_meat: false,
         no_dairy: false,
         note: null,
@@ -66,17 +65,16 @@ describe('daily entry and summary', () => {
       expect(res.json().day.weight_lb).toBe(194.5);
     });
 
-    it('ticks a check-in box without disturbing anything else', async () => {
+    it('marks the goals reviewed without disturbing anything else', async () => {
       await put(`/api/day/${DAY}`, { weight_lb: 194.5, no_meat: true });
-      await put(`/api/day/${DAY}`, { reviewed_morning: true });
+      await put(`/api/day/${DAY}`, { goals_reviewed: true });
 
       const day = (await get(`/api/day/${DAY}`)).json().day;
 
       expect(day).toMatchObject({
         weight_lb: 194.5,
         no_meat: true,
-        reviewed_morning: true,
-        reviewed_night: false,
+        goals_reviewed: true,
       });
     });
 

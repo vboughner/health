@@ -63,7 +63,7 @@ export function registerTrendRoutes(app: FastifyInstance, opts: AppOptions): voi
           window_first: window?.first ?? null,
           window_last: window?.last ?? null,
           window_compliant: window?.compliant ?? null,
-          checked_in: !!(entry?.reviewed_morning && entry?.reviewed_night),
+          goals_reviewed: entry?.goals_reviewed ?? false,
           no_meat: entry?.no_meat ?? false,
           no_dairy: entry?.no_dairy ?? false,
         };
@@ -97,9 +97,14 @@ export function registerTrendRoutes(app: FastifyInstance, opts: AppOptions): voi
             windowDays.length,
             windowDays.filter((r) => r.window_compliant).length,
           ),
-          checkin_streak: currentStreak(
+          goals_reviewed_days: rows.filter((r) => r.goals_reviewed).length,
+          goals_review_rate: complianceRate(
+            rows.length,
+            rows.filter((r) => r.goals_reviewed).length,
+          ),
+          goals_review_streak: currentStreak(
             range,
-            new Set(rows.filter((r) => r.checked_in).map((r) => r.day)),
+            new Set(rows.filter((r) => r.goals_reviewed).map((r) => r.day)),
           ),
         },
       };

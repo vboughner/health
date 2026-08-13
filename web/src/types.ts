@@ -90,8 +90,7 @@ export interface DayEntry {
   weight_lb: number | null;
   sleep_start: number | null;
   sleep_end: number | null;
-  reviewed_morning: boolean;
-  reviewed_night: boolean;
+  goals_reviewed: boolean;
   no_meat: boolean;
   no_dairy: boolean;
   note: string | null;

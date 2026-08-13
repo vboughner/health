@@ -272,9 +272,7 @@ function main() {
       weight_lb: random() < 0.85 ? reading : null,
       sleep_start: sleepStart,
       sleep_end: sleepEnd,
-      reviewed_morning: random() < 0.85,
-      // Tonight's review hasn't happened yet if it's still afternoon.
-      reviewed_night: isToday ? nowHour >= 21 && random() < 0.8 : random() < 0.8,
+      goals_reviewed: random() < 0.8,
       no_meat: true,
       no_dairy: random() < 0.93,
     });

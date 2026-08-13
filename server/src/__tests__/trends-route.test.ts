@@ -66,7 +66,7 @@ describe('GET /api/trends', () => {
       weight_lb: null,
       sleep_hours: null,
       window_compliant: null,
-      checked_in: false,
+      goals_reviewed: false,
     });
   });
 
@@ -117,21 +117,32 @@ describe('GET /api/trends', () => {
     expect(s.window_compliance).toBe(50);
   });
 
-  it('tracks the check-in streak, which needs both boxes ticked', async () => {
-    await put(`/api/day/${today}`, { reviewed_morning: true, reviewed_night: true });
-    await put(`/api/day/${daysAgo(1)}`, { reviewed_morning: true, reviewed_night: true });
-    await put(`/api/day/${daysAgo(2)}`, { reviewed_morning: true }); // only half
+  it('tracks the goal-review streak', async () => {
+    await put(`/api/day/${today}`, { goals_reviewed: true });
+    await put(`/api/day/${daysAgo(1)}`, { goals_reviewed: true });
+    await put(`/api/day/${daysAgo(3)}`, { goals_reviewed: true }); // gap at day 2
 
-    expect((await get('/api/trends?days=7')).json().summary.checkin_streak).toBe(2);
+    const s = (await get('/api/trends?days=7')).json().summary;
+
+    expect(s.goals_review_streak).toBe(2);
+    expect(s.goals_reviewed_days).toBe(3);
   });
 
   it('reports a broken streak as zero even after a long run', async () => {
     for (let i = 1; i <= 5; i++) {
-      await put(`/api/day/${daysAgo(i)}`, { reviewed_morning: true, reviewed_night: true });
+      await put(`/api/day/${daysAgo(i)}`, { goals_reviewed: true });
     }
     // Today is missed.
 
-    expect((await get('/api/trends?days=7')).json().summary.checkin_streak).toBe(0);
+    expect((await get('/api/trends?days=7')).json().summary.goals_review_streak).toBe(0);
+  });
+
+  it('reports the share of days the goals were reviewed', async () => {
+    await put(`/api/day/${today}`, { goals_reviewed: true });
+    await put(`/api/day/${daysAgo(1)}`, { goals_reviewed: true });
+
+    // 2 of 4 days.
+    expect((await get('/api/trends?days=4')).json().summary.goals_review_rate).toBe(50);
   });
 
   it('averages sleep over the nights it was recorded', async () => {

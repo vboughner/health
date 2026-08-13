@@ -9,6 +9,7 @@ interface TrendDay {
   weight_lb: number | null;
   sleep_hours: number | null;
   window_compliant: boolean | null;
+  goals_reviewed: boolean;
 }
 
 interface Trends {
@@ -27,7 +28,9 @@ interface Trends {
     days_logged: number;
     days_under_budget: number;
     window_compliance: number;
-    checkin_streak: number;
+    goals_reviewed_days: number;
+    goals_review_rate: number;
+    goals_review_streak: number;
   };
 }
 
@@ -104,7 +107,7 @@ export function Trends({ refreshKey }: { refreshKey: number }) {
         />
         <Tile value={s.avg_kcal ?? '—'} unit="cal" label="Avg eaten" />
         <Tile value={`${s.window_compliance}`} unit="%" label="In window" />
-        <Tile value={s.avg_sleep_hours ?? '—'} unit="h" label="Avg sleep" />
+        <Tile value={s.goals_review_streak} unit="days" label="Goal review streak" />
       </div>
 
       <div className="card">
@@ -143,12 +146,27 @@ export function Trends({ refreshKey }: { refreshKey: number }) {
       </div>
 
       <div className="card">
+        <div className="card-title">
+          Goals reviewed <span className="faint">· {s.goals_review_rate}% of days</span>
+        </div>
+        <ComplianceStrip
+          days={data.days.map((d) => ({ day: d.day, ok: d.goals_reviewed }))}
+          labels={{ ok: 'Reviewed', bad: 'Not reviewed' }}
+        />
+      </div>
+
+      <div className="card">
         <div className="card-title">Averages</div>
         <div className="stack">
           <Line label="Calories eaten" value={s.avg_kcal} unit="cal" />
           <Line label="Calories burned" value={s.avg_burned} unit="cal" target={data.burn_target} />
           <Line label="Sleep" value={s.avg_sleep_hours} unit="h" />
           <Line label="Days logged" value={s.days_logged} unit={`of ${data.days.length}`} />
+          <Line
+            label="Goals reviewed"
+            value={s.goals_reviewed_days}
+            unit={`of ${data.days.length} days`}
+          />
         </div>
       </div>
     </div>

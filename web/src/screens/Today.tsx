@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api';
+import { bedtimeBelongsTo, shortDayLabel } from '../dates';
 import type { User, DaySummary, DayEntry, Activity } from '../types';
 import { CalorieHeader } from '../components/CalorieHeader';
 import { MacroBar } from '../components/MacroBar';
@@ -15,6 +16,7 @@ export function Today({
   onChangeDate,
   refreshKey,
   onLogout,
+  onReviewGoals,
 }: {
   user: User;
   date: string;
@@ -22,6 +24,7 @@ export function Today({
   onChangeDate: (day: string) => void;
   refreshKey: number;
   onLogout: () => void;
+  onReviewGoals: () => void;
 }) {
   const [summary, setSummary] = useState<DaySummary | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -75,9 +78,8 @@ export function Today({
 
   const nav = <DayNav date={date} today={today} onChange={onChangeDate} />;
 
-  // Showing the nav while the day loads keeps arrow-tapping responsive instead of
-  // blanking the whole screen on every step.
-  if (!summary || summary.date !== date) {
+  // Only the very first load has nothing to show.
+  if (!summary) {
     return (
       <div className="stack">
         {nav}
@@ -92,8 +94,24 @@ export function Today({
     );
   }
 
-  const { food, exercise, net, window: win, day } = summary;
-  const patchDay = (patch: Partial<DayEntry>) => act(() => api.put(`/day/${date}`, patch));
+  // Stepping to another day keeps the previous day on screen, dimmed, until the
+  // new one arrives. Swapping it for a spinner collapsed the page to a couple of
+  // rows and back, which reads as a flicker and throws away the scroll position.
+  // Interaction is off while stale so a tap cannot land on the day being left.
+  const stale = summary.date !== date;
+
+  const { food, exercise, window: win, day } = summary;
+  const patchOn = (on: string, patch: Partial<DayEntry>) => act(() => api.put(`/day/${on}`, patch));
+  const patchDay = (patch: Partial<DayEntry>) => patchOn(date, patch);
+
+  /** File tonight's bedtime under the night it ends, and say where it went. */
+  async function stampBedtime(): Promise<string> {
+    const on = bedtimeBelongsTo(user.timezone);
+    await patchOn(on, { sleep_start: Date.now() });
+    return on === date
+      ? 'Bedtime saved.'
+      : `Bedtime saved for ${shortDayLabel(on, today)}'s night.`;
+  }
 
   return (
     <div className="stack">
@@ -108,98 +126,100 @@ export function Today({
 
       {error && <div className="error">{error}</div>}
 
-      <div className="card">
-        <CalorieHeader eaten={food.totals.kcal} budget={food.budget} isToday={date === today} />
-      </div>
+      <div className={stale ? 'day-body day-body-stale' : 'day-body'} aria-busy={stale}>
+        <div className="card">
+          <CalorieHeader eaten={food.totals.kcal} budget={food.budget} isToday={date === today} />
+        </div>
 
-      <div className="card">
-        <div className="card-title">Macros</div>
-        <MacroBar
-          protein_g={food.totals.protein_g}
-          fat_g={food.totals.fat_g}
-          carb_g={food.totals.carb_g}
-        />
-      </div>
+        <div className="card">
+          <div className="card-title">Macros</div>
+          <MacroBar
+            protein_g={food.totals.protein_g}
+            fat_g={food.totals.fat_g}
+            carb_g={food.totals.carb_g}
+          />
+        </div>
 
-      <div className="card">
-        <div className="card-title">Eating window</div>
-        <WindowBar window={win} />
-      </div>
+        <div className="card">
+          <div className="card-title">Eating window</div>
+          <WindowBar window={win} />
+        </div>
 
-      <div className="card">
-        <div className="card-title">{date === today ? 'Eaten today' : 'Eaten'}</div>
-        {food.entries.length === 0 ? (
-          <div className="empty">Nothing logged.</div>
-        ) : (
-          <div className="list">
-            {food.entries.map((e) => (
-              <div key={e.id} className="entry">
-                <div className="entry-main">
-                  <div className="entry-name">
-                    {e.food_name}
-                    <WarningChip reasons={e.processed_flags} />
+        <div className="card">
+          <div className="card-title">{date === today ? 'Eaten today' : 'Eaten'}</div>
+          {food.entries.length === 0 ? (
+            <div className="empty">Nothing logged.</div>
+          ) : (
+            <div className="list">
+              {food.entries.map((e) => (
+                <div key={e.id} className="entry">
+                  <div className="entry-main">
+                    <div className="entry-name">
+                      {e.food_name}
+                      <WarningChip reasons={e.processed_flags} />
+                    </div>
+                    <div className="entry-detail">
+                      {formatTime(e.eaten_at, user.timezone)} · {formatAmount(e)}
+                    </div>
                   </div>
-                  <div className="entry-detail">
-                    {formatTime(e.eaten_at, user.timezone)} · {formatAmount(e)}
-                  </div>
+                  <div className="entry-kcal">{Math.round(e.kcal)}</div>
+                  <button
+                    className="entry-del"
+                    onClick={() => act(() => api.del(`/log/food/${e.id}`))}
+                    aria-label={`Delete ${e.food_name}`}
+                  >
+                    ×
+                  </button>
                 </div>
-                <div className="entry-kcal">{Math.round(e.kcal)}</div>
-                <button
-                  className="entry-del"
-                  onClick={() => act(() => api.del(`/log/food/${e.id}`))}
-                  aria-label={`Delete ${e.food_name}`}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="card">
-        <div className="card-title">Exercise</div>
-        <div className="stat-row">
-          <Stat value={exercise.total} label="burned" />
-          <Stat value={exercise.target} label="target" dim />
+              ))}
+            </div>
+          )}
         </div>
 
-        {net.tooLow && (
-          <div className="warn-banner">
-            Net intake came out under 1200 ({net.net}) after exercise. On a heavy training day that
-            is worth topping up rather than riding out.
+        <div className="card">
+          <div className="card-title">Exercise</div>
+          <div className="stat-row">
+            <Stat value={exercise.total} label="burned" />
+            <Stat value={exercise.target} label="target" dim />
           </div>
-        )}
 
-        <ExerciseList
-          entries={exercise.entries}
-          activities={activities}
-          onDelete={(id) => act(() => api.del(`/log/exercise/${id}`))}
-        />
-
-        <ExerciseInput
-          activities={activities}
-          onAdd={(activity, minutes) =>
-            act(() => api.post('/log/exercise', { activity, minutes, date }))
-          }
-        />
-      </div>
-
-      <div className="card">
-        <div className="card-title">Body</div>
-        <div className="stack">
-          <WeightInput
-            key={`w-${date}`}
-            weight={day.weight_lb}
-            onSave={(lb) => patchDay({ weight_lb: lb })}
+          <ExerciseList
+            entries={exercise.entries}
+            activities={activities}
+            onDelete={(id) => act(() => api.del(`/log/exercise/${id}`))}
           />
-          <SleepInput
-            key={`s-${date}`}
-            day={day}
-            hours={day.sleep_hours}
-            onSave={(start, end) => patchDay({ sleep_start: start, sleep_end: end })}
+
+          <ExerciseInput
+            activities={activities}
+            onAdd={(activity, minutes) =>
+              act(() => api.post('/log/exercise', { activity, minutes, date }))
+            }
           />
         </div>
+
+        <div className="card">
+          <div className="card-title">Body</div>
+          <div className="stack">
+            <WeightInput
+              key={`w-${summary.date}`}
+              weight={day.weight_lb}
+              onSave={(lb) => patchDay({ weight_lb: lb })}
+            />
+            <SleepInput
+              key={`s-${summary.date}`}
+              day={day}
+              hours={day.sleep_hours}
+              isToday={date === today}
+              onSave={(start, end) => patchDay({ sleep_start: start, sleep_end: end })}
+              onStampWake={() => patchDay({ sleep_end: Date.now() })}
+              onStampBed={stampBedtime}
+            />
+          </div>
+        </div>
+
+        <button className="btn btn-block" onClick={onReviewGoals}>
+          Review my goals
+        </button>
       </div>
     </div>
   );

@@ -36,20 +36,31 @@ export function WeightInput({
 }
 
 /**
- * Sleep as two wall-clock times. Bedtime is assumed to be the previous evening when
- * it is later than the wake time, which is the normal case and saves asking for a date.
+ * Sleep, as the night that ended on the morning of the day being shown.
+ *
+ * The two buttons stamp the current time so nothing has to be typed at 6am. "Got
+ * Up" fills in the day on screen. "Laying Down" belongs to the night that ends
+ * *tomorrow*, so it is filed there and says so — otherwise pressing it would look
+ * like it did nothing, or worse, would overwrite last night's bedtime.
  */
 export function SleepInput({
   day,
   hours,
+  isToday,
   onSave,
+  onStampWake,
+  onStampBed,
 }: {
   day: DayEntry;
   hours: number | null;
+  isToday: boolean;
   onSave: (start: number | null, end: number | null) => void;
+  onStampWake: () => void;
+  onStampBed: () => Promise<string>;
 }) {
   const [bed, setBed] = useState(toTimeInput(day.sleep_start));
   const [wake, setWake] = useState(toTimeInput(day.sleep_end));
+  const [filed, setFiled] = useState('');
 
   function commit(nextBed: string, nextWake: string) {
     setBed(nextBed);
@@ -64,19 +75,61 @@ export function SleepInput({
     onSave(bedMs, wakeMs);
   }
 
+  async function layDown() {
+    const label = await onStampBed();
+    setFiled(label);
+    setTimeout(() => setFiled(''), 6000);
+  }
+
   return (
-    <div className="sleep-row">
-      <label className="inline-field">
-        <span className="inline-label">Asleep</span>
-        <input type="time" value={bed} onChange={(e) => commit(e.target.value, wake)} />
-      </label>
-      <label className="inline-field">
+    <div className="sleep">
+      {/* Awake first — it is the one you press when the day starts. */}
+      <div className="sleep-block">
         <span className="inline-label">Awake</span>
-        <input type="time" value={wake} onChange={(e) => commit(bed, e.target.value)} />
-      </label>
-      <div className="sleep-total">
-        {hours === null ? <span className="faint">—</span> : <strong>{hours}h</strong>}
+        <div className="sleep-controls">
+          <input
+            type="time"
+            value={wake}
+            aria-label="Awake time"
+            onChange={(e) => commit(bed, e.target.value)}
+          />
+          {isToday && (
+            <button className="btn sleep-btn" onClick={onStampWake}>
+              Got Up
+            </button>
+          )}
+        </div>
       </div>
+
+      <div className="sleep-block">
+        <span className="inline-label">Asleep</span>
+        <div className="sleep-controls">
+          <input
+            type="time"
+            value={bed}
+            aria-label="Asleep time"
+            onChange={(e) => commit(e.target.value, wake)}
+          />
+          {isToday && (
+            <button className="btn sleep-btn" onClick={layDown}>
+              Laying Down
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="sleep-summary">
+        {hours === null ? (
+          <span className="faint">No sleep recorded</span>
+        ) : (
+          <>
+            <strong>{hours} hours</strong>{' '}
+            <span className="faint">in bed {isToday ? 'last night' : 'that night'}</span>
+          </>
+        )}
+      </div>
+
+      {filed && <div className="toast tiny">{filed}</div>}
     </div>
   );
 }

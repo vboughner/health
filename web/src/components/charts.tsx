@@ -224,7 +224,16 @@ export function CalorieChart({ points, budget }: { points: Series[]; budget: num
  * One cell per day: inside the window, outside it, or nothing logged.
  * Legend included — state must never be carried by color alone.
  */
-export function ComplianceStrip({ days }: { days: { day: string; ok: boolean | null }[] }) {
+export function ComplianceStrip({
+  days,
+  labels = { ok: 'Within', bad: 'Outside', none: 'Not logged' },
+}: {
+  days: { day: string; ok: boolean | null }[];
+  labels?: { ok: string; bad: string; none?: string };
+}) {
+  const describe = (ok: boolean | null) =>
+    ok === null ? (labels.none ?? 'no data') : ok ? labels.ok : labels.bad;
+
   return (
     <div className="strip-wrap">
       <div className="strip">
@@ -232,14 +241,17 @@ export function ComplianceStrip({ days }: { days: { day: string; ok: boolean | n
           <div
             key={d.day}
             className={`strip-cell ${d.ok === null ? 'strip-none' : d.ok ? 'strip-ok' : 'strip-bad'}`}
-            title={`${longDay(d.day)} — ${d.ok === null ? 'nothing logged' : d.ok ? 'within window' : 'outside window'}`}
+            title={`${longDay(d.day)} — ${describe(d.ok)}`}
           />
         ))}
       </div>
       <div className="strip-legend">
-        <LegendItem cls="strip-ok" label="Within" />
-        <LegendItem cls="strip-bad" label="Outside" />
-        <LegendItem cls="strip-none" label="Not logged" />
+        <LegendItem cls="strip-ok" label={labels.ok} />
+        <LegendItem cls="strip-bad" label={labels.bad} />
+        {/* Only shown when the series actually has an unknown state. */}
+        {labels.none && days.some((d) => d.ok === null) && (
+          <LegendItem cls="strip-none" label={labels.none} />
+        )}
       </div>
     </div>
   );

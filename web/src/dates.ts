@@ -73,6 +73,24 @@ export function nowTime(now = new Date()): string {
 }
 
 /**
+ * Before this hour, lying down counts as the small hours of a night already in
+ * progress rather than the start of the next one.
+ */
+export const NIGHT_SPLIT_HOUR = 12;
+
+/**
+ * Which day's record a bedtime stamped right now belongs to.
+ *
+ * A night is filed under the morning it ends, so lying down on Tuesday evening
+ * belongs to Wednesday. Lying down at 00:30 is already Wednesday and belongs to
+ * that same day — hence the noon split rather than a plain "tomorrow".
+ */
+export function bedtimeBelongsTo(timezone: string, now = new Date()): string {
+  const day = todayIn(timezone, now.getTime());
+  return now.getHours() >= NIGHT_SPLIT_HOUR ? addDays(day, 1) : day;
+}
+
+/**
  * Combine a day and an HH:MM into an epoch timestamp.
  *
  * Uses the browser's timezone, which is the user's own phone — the same assumption

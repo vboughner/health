@@ -352,8 +352,7 @@ export interface DailyEntry {
   weight_lb: number | null;
   sleep_start: number | null;
   sleep_end: number | null;
-  reviewed_morning: boolean;
-  reviewed_night: boolean;
+  goals_reviewed: boolean;
   no_meat: boolean;
   no_dairy: boolean;
   note: string | null;
@@ -365,22 +364,20 @@ const DAILY_FIELDS = [
   'weight_lb',
   'sleep_start',
   'sleep_end',
-  'reviewed_morning',
-  'reviewed_night',
+  'goals_reviewed',
   'no_meat',
   'no_dairy',
   'note',
 ] as const;
 
-const BOOLEAN_FIELDS = new Set(['reviewed_morning', 'reviewed_night', 'no_meat', 'no_dairy']);
+const BOOLEAN_FIELDS = new Set(['goals_reviewed', 'no_meat', 'no_dairy']);
 
 interface DailyRow {
   local_day: string;
   weight_lb: number | null;
   sleep_start: number | null;
   sleep_end: number | null;
-  reviewed_morning: number;
-  reviewed_night: number;
+  goals_reviewed: number;
   no_meat: number;
   no_dairy: number;
   note: string | null;
@@ -390,8 +387,8 @@ interface DailyRow {
 export function getDailyEntry(db: Db, userId: number, localDay: string): DailyEntry {
   const row = db
     .prepare(
-      `SELECT local_day, weight_lb, sleep_start, sleep_end, reviewed_morning,
-              reviewed_night, no_meat, no_dairy, note
+      `SELECT local_day, weight_lb, sleep_start, sleep_end, goals_reviewed,
+              no_meat, no_dairy, note
        FROM daily_entries WHERE user_id = ? AND local_day = ?`,
     )
     .get(userId, localDay) as DailyRow | undefined;
@@ -402,8 +399,7 @@ export function getDailyEntry(db: Db, userId: number, localDay: string): DailyEn
       weight_lb: null,
       sleep_start: null,
       sleep_end: null,
-      reviewed_morning: false,
-      reviewed_night: false,
+      goals_reviewed: false,
       no_meat: false,
       no_dairy: false,
       note: null,
@@ -412,8 +408,7 @@ export function getDailyEntry(db: Db, userId: number, localDay: string): DailyEn
 
   return {
     ...row,
-    reviewed_morning: !!row.reviewed_morning,
-    reviewed_night: !!row.reviewed_night,
+    goals_reviewed: !!row.goals_reviewed,
     no_meat: !!row.no_meat,
     no_dairy: !!row.no_dairy,
   };
@@ -522,8 +517,8 @@ export function dailyEntriesInRange(
 ): DailyEntry[] {
   const rows = db
     .prepare(
-      `SELECT local_day, weight_lb, sleep_start, sleep_end, reviewed_morning,
-              reviewed_night, no_meat, no_dairy, note
+      `SELECT local_day, weight_lb, sleep_start, sleep_end, goals_reviewed,
+              no_meat, no_dairy, note
        FROM daily_entries
        WHERE user_id = ? AND local_day BETWEEN ? AND ?
        ORDER BY local_day`,
@@ -532,8 +527,7 @@ export function dailyEntriesInRange(
 
   return rows.map((row) => ({
     ...row,
-    reviewed_morning: !!row.reviewed_morning,
-    reviewed_night: !!row.reviewed_night,
+    goals_reviewed: !!row.goals_reviewed,
     no_meat: !!row.no_meat,
     no_dairy: !!row.no_dairy,
   }));
