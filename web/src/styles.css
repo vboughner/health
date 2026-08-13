@@ -1245,21 +1245,20 @@ textarea:focus {
 }
 
 .win-rule {
-  font-size: 12px;
-  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 600;
   border-top: 1px solid var(--border);
   padding-top: 9px;
 }
 
-.win-verdict {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.win-verdict-ok {
+.win-rule-ok {
   color: var(--accent);
 }
 
-.win-verdict-bad {
+.win-rule-bad {
   color: var(--warn);
+}
+
+.win-rule-reason {
+  font-weight: 400;
 }

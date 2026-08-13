@@ -14,15 +14,24 @@ export function WindowBar({ window: w }: { window: DaySummary['window'] }) {
   const targetStart = toMinutes(w.target_start);
   const targetEnd = toMinutes(w.target_end);
 
-  // The rule, stated plainly and always on screen — the whole point of the window
-  // is the hard stop at the end of it, and it should not take a violation to see it.
+  // One line carrying both the goal and how the day is going against it.
+  //
+  // Green means "not broken yet" rather than "finished clean": a day still in
+  // progress, and a day with nothing logged, are both still intact. The window
+  // can only be violated by something actually eaten outside it, so the line
+  // only turns amber once that has happened.
+  const violations = [
+    w.startedOnTime === false && `ate before ${clock(w.target_start)}`,
+    w.endedOnTime === false && `ate after ${clock(w.target_end)}`,
+  ].filter(Boolean) as string[];
+
+  const intact = violations.length === 0;
+
   const rule = (
-    <div className="win-rule">
-      Finish eating by <strong>{clock(w.target_end)}</strong>
-      <span className="faint">
-        {' '}
-        · window {clock(w.target_start)}–{clock(w.target_end)}
-      </span>
+    <div className={`win-rule ${intact ? 'win-rule-ok' : 'win-rule-bad'}`}>
+      <span aria-hidden="true">{intact ? '✓' : '✗'}</span> Eating window {clock(w.target_start)}–
+      {clock(w.target_end)}
+      {!intact && <span className="win-rule-reason"> · {violations.join(', ')}</span>}
     </div>
   );
 
@@ -42,14 +51,13 @@ export function WindowBar({ window: w }: { window: DaySummary['window'] }) {
 
   const first = toMinutes(w.first);
   const last = toMinutes(w.last);
-  const state = w.compliant ? 'ok' : 'bad';
 
   return (
     <div className="win">
       <div className="win-track">
         <div className="win-target" style={barStyle(targetStart, targetEnd)} />
         <div
-          className={`win-actual win-${state}`}
+          className={`win-actual ${intact ? 'win-ok' : 'win-bad'}`}
           style={barStyle(first, Math.max(last, first + 6))}
         />
       </div>
@@ -68,33 +76,9 @@ export function WindowBar({ window: w }: { window: DaySummary['window'] }) {
         </span>
       </div>
 
-      {w.compliant ? (
-        <div className="win-verdict win-verdict-ok">
-          <span aria-hidden="true">✓</span> Ate inside the window
-        </div>
-      ) : (
-        <div className="win-verdict win-verdict-bad">
-          <span aria-hidden="true">✗</span>{' '}
-          {[
-            !w.startedOnTime && `started before ${clock(w.target_start)}`,
-            !w.endedOnTime && `ate after ${clock(w.target_end)}`,
-          ]
-            .filter(Boolean)
-            .join(', ')}
-        </div>
-      )}
-
       {rule}
     </div>
   );
-}
-
-/** 24-hour HH:MM to a readable 12-hour clock: 19:00 becomes 7pm. */
-function clock(hhmm: string): string {
-  const [h, m] = hhmm.split(':').map(Number);
-  const suffix = h < 12 ? 'am' : 'pm';
-  const hour = h % 12 === 0 ? 12 : h % 12;
-  return m === 0 ? `${hour}${suffix}` : `${hour}:${String(m).padStart(2, '0')}${suffix}`;
 }
 
 function barStyle(fromMin: number, toMin: number) {
@@ -113,4 +97,12 @@ function formatSpan(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return m === 0 ? `${h}h` : `${h}h ${m}m`;
+}
+
+/** 24-hour HH:MM to a readable 12-hour clock: 19:00 becomes 7pm. */
+function clock(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map(Number);
+  const suffix = h < 12 ? 'am' : 'pm';
+  const hour = h % 12 === 0 ? 12 : h % 12;
+  return m === 0 ? `${hour}${suffix}` : `${hour}:${String(m).padStart(2, '0')}${suffix}`;
 }
