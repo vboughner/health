@@ -115,6 +115,9 @@ export function registerTrendRoutes(app: FastifyInstance, opts: AppOptions): voi
             windowDays.filter((r) => r.window_compliant).length,
           ),
           goals_review_rate: complianceRate(reviewKnownDays.length, reviewedDays.length),
+          // The rate is meaningless without the denominator: "100%" reads very
+          // differently over one day than over thirty, and early on it is one day.
+          goals_review_days: reviewKnownDays.length,
           goals_review_streak: currentStreak(range, new Set(reviewedDays.map((r) => r.day))),
         },
       };

@@ -182,11 +182,18 @@ describe('GET /api/trends', () => {
 
     // 2 of the 3 days with any record. The fourth day has nothing on it and is left
     // out of the denominator, so the figure matches the cells the strip draws.
-    expect((await get('/api/trends?days=4')).json().summary.goals_review_rate).toBe(67);
+    const s = (await get('/api/trends?days=4')).json().summary;
+
+    expect(s.goals_review_rate).toBe(67);
+    // The denominator travels with the rate so the screen can name it.
+    expect(s.goals_review_days).toBe(3);
   });
 
   it('reads as zero rather than dividing by no days at all', async () => {
-    expect((await get('/api/trends?days=7')).json().summary.goals_review_rate).toBe(0);
+    const s = (await get('/api/trends?days=7')).json().summary;
+
+    expect(s.goals_review_rate).toBe(0);
+    expect(s.goals_review_days).toBe(0);
   });
 
   it('averages sleep, pairing each morning with the previous evening', async () => {

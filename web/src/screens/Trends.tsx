@@ -30,6 +30,8 @@ interface Trends {
     days_under_budget: number;
     window_compliance: number;
     goals_review_rate: number;
+    /** Days the rate is out of — the ones the strip draws a filled cell for. */
+    goals_review_days: number;
     goals_review_streak: number;
   };
 }
@@ -147,7 +149,18 @@ export function Trends({ refreshKey }: { refreshKey: number }) {
 
       <div className="card">
         <div className="card-title">
-          Goals reviewed <span className="faint">· {s.goals_review_rate}% of days</span>
+          Goals reviewed
+          {/* Named rather than left as "of days", because the denominator is only
+              the days with something on them — and at the start that is one day,
+              where a bare "100%" claims far more than it knows. Dropped entirely
+              when there are none, rather than reading "0% of 0 days". */}
+          {s.goals_review_days > 0 && (
+            <span className="faint">
+              {' '}
+              · {s.goals_review_rate}% of {s.goals_review_days}{' '}
+              {s.goals_review_days === 1 ? 'day' : 'days'}
+            </span>
+          )}
         </div>
         <ComplianceStrip
           days={data.days.map((d) => ({ day: d.day, ok: d.goals_reviewed }))}
