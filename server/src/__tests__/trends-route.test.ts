@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { testDb, testApp, loginAs, fakeUsda, USDA_BANANA } from './helpers';
+import { testDb, testApp, loginAs, fakeUsda, USDA_BANANA, type Payload, type Res } from './helpers';
 import type { Db } from '../db';
+import type { DailyEntryPatch } from '../store';
 import { localDay } from '../domain/day';
 
 const TZ = 'America/Los_Angeles';
@@ -25,10 +26,10 @@ describe('GET /api/trends', () => {
     db.close();
   });
 
-  const get = (url: string) => app.inject({ method: 'GET', url, headers: { cookie } });
-  const put = (url: string, payload: unknown) =>
+  const get = (url: string): Res => app.inject({ method: 'GET', url, headers: { cookie } });
+  const put = (url: string, payload: DailyEntryPatch): Res =>
     app.inject({ method: 'PUT', url, payload, headers: { cookie } });
-  const post = (url: string, payload: unknown) =>
+  const post = (url: string, payload?: Payload): Res =>
     app.inject({ method: 'POST', url, payload, headers: { cookie } });
 
   /** A day N days before today, as YYYY-MM-DD. */
@@ -124,8 +125,8 @@ describe('GET /api/trends', () => {
 
     const s = (await get('/api/trends?days=7')).json().summary;
 
+    // Counts back from today and stops at the gap, so the day-3 review doesn't count.
     expect(s.goals_review_streak).toBe(2);
-    expect(s.goals_reviewed_days).toBe(3);
   });
 
   it('reports a broken streak as zero even after a long run', async () => {

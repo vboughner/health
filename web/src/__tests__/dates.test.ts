@@ -156,4 +156,13 @@ describe('bedtimeBelongsTo', () => {
   it('rolls over a year boundary', () => {
     expect(bedtimeBelongsTo(LOCAL, new Date(2026, 11, 31, 23, 30))).toBe('2027-01-01');
   });
+
+  it('reads the hour in the given timezone, not the browser one', () => {
+    // 9am in Los Angeles is 4pm UTC — morning on one clock, evening on the other,
+    // which lands the split on opposite sides.
+    const instant = new Date('2026-08-11T09:00:00-07:00');
+
+    expect(bedtimeBelongsTo('America/Los_Angeles', instant)).toBe('2026-08-11');
+    expect(bedtimeBelongsTo('UTC', instant)).toBe('2026-08-12');
+  });
 });

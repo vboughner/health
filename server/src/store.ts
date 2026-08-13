@@ -415,8 +415,8 @@ export function getDailyEntry(db: Db, userId: number, localDay: string): DailyEn
 }
 
 /**
- * Update only the fields present in the patch, leaving the rest alone. Ticking one
- * check-in box must not blank out the weight typed a moment earlier.
+ * Update only the fields present in the patch, leaving the rest alone. Marking the
+ * goals reviewed must not blank out the weight typed a moment earlier.
  */
 export function upsertDailyEntry(
   db: Db,

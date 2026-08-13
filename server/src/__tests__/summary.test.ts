@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { testDb, testApp, loginAs, fakeUsda, USDA_BANANA } from './helpers';
+import { testDb, testApp, loginAs, fakeUsda, USDA_BANANA, type Payload, type Res } from './helpers';
 import type { Db } from '../db';
+import type { DailyEntryPatch } from '../store';
 
 const DAY = '2026-01-15';
 /** A local wall-clock time on DAY, in Pacific (the default user timezone). */
@@ -24,11 +25,14 @@ describe('daily entry and summary', () => {
     db.close();
   });
 
-  const post = (url: string, payload: unknown) =>
+  const post = (url: string, payload?: Payload): Res =>
     app.inject({ method: 'POST', url, payload, headers: { cookie } });
-  const put = (url: string, payload: unknown) =>
+  // Typed as the patch shape, so a column dropped from the schema cannot keep being
+  // written here and silently no-op — upsertDailyEntry filters unknown keys.
+  const put = (url: string, payload: DailyEntryPatch): Res =>
     app.inject({ method: 'PUT', url, payload, headers: { cookie } });
-  const get = (url: string) => app.inject({ method: 'GET', url, headers: { cookie } });
+  const get = (url: string): Res => app.inject({ method: 'GET', url, headers: { cookie } });
+
   const summary = async () => (await get(`/api/summary/${DAY}`)).json();
 
   const logFood = (kcalPer100g: number, grams: number, hhmm: string) =>
@@ -235,14 +239,13 @@ describe('daily entry and summary', () => {
       expect(s.food.remaining).toBe(2400);
       expect(s.exercise.total).toBe(0);
       expect(s.window.compliant).toBeNull();
-      expect(s.net.tooLow).toBe(false);
     });
 
-    it('rolls up food, exercise, window, sleep, and check-in in one call', async () => {
+    it('rolls up food, exercise, window, and sleep in one call', async () => {
       await put(`/api/day/${DAY}`, {
         weight_lb: 195,
         no_meat: true,
-        reviewed_morning: true,
+        goals_reviewed: true,
         sleep_start: Date.parse(`2026-01-14T22:30:00-08:00`),
         sleep_end: Date.parse(`${DAY}T06:30:00-08:00`),
       });
@@ -258,7 +261,6 @@ describe('daily entry and summary', () => {
       expect(s.exercise.target).toBe(960);
       expect(s.window).toMatchObject({ first: '09:30', last: '18:00', compliant: true });
       expect(s.day).toMatchObject({ weight_lb: 195, no_meat: true, sleep_hours: 8 });
-      expect(s.net.net).toBe(605);
     });
 
     it('derives the eating window from the food log rather than asking', async () => {
@@ -279,42 +281,6 @@ describe('daily entry and summary', () => {
     it('reports the target window alongside the actual one', async () => {
       const s = await summary();
       expect(s.window).toMatchObject({ target_start: '09:00', target_end: '19:00' });
-    });
-
-    it('flags a past day where exercise left net intake too low', async () => {
-      await put(`/api/day/${DAY}`, { weight_lb: 195 });
-      await logFood(100, 1500, '12:00'); // 1500 cal
-      await post('/api/log/exercise', { activity: 'running', minutes: 30, kcal: 900, date: DAY });
-
-      const s = await summary();
-
-      expect(s.net.net).toBe(600);
-      // DAY is in the past, so the number is final and the warning means something.
-      expect(s.net.tooLow).toBe(true);
-    });
-
-    it('does not flag today while the eating window is still open', async () => {
-      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
-      const nowMinutes = Number(
-        new Date().toLocaleString('en-US', {
-          timeZone: 'America/Los_Angeles',
-          hour: '2-digit',
-          hourCycle: 'h23',
-        }),
-      );
-
-      await post('/api/log/food', {
-        food: { source: 'usda', ...USDA_BANANA },
-        quantity: 500,
-        unit: 'g',
-      });
-      await post('/api/log/exercise', { activity: 'running', minutes: 30, kcal: 900 });
-
-      const s = (await get(`/api/summary/${today}`)).json();
-
-      // Net is ~-455 either way; whether it warns depends on the time of day.
-      expect(s.net.net).toBeLessThan(1200);
-      expect(s.net.tooLow).toBe(nowMinutes >= 19);
     });
 
     it('reports macro percentages of calories', async () => {

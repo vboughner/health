@@ -1,4 +1,4 @@
-import { addDays, dayLabel, daysBetween } from '../dates';
+import { addDays, dayLabel } from '../dates';
 
 /**
  * Step between days. Arrows move one day; tapping the label opens the phone's
@@ -18,7 +18,6 @@ export function DayNav({
   onChange: (day: string) => void;
 }) {
   const isToday = date === today;
-  const canGoForward = daysBetween(today, date) < 0;
 
   return (
     <div className="daynav">
@@ -48,7 +47,6 @@ export function DayNav({
           <button
             className="daynav-arrow"
             onClick={() => onChange(addDays(date, 1))}
-            disabled={!canGoForward}
             aria-label="Next day"
           >
             ›

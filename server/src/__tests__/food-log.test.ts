@@ -8,6 +8,8 @@ import {
   brokenUsda,
   USDA_BANANA,
   USDA_COOKIE,
+  type Payload,
+  type Res,
 } from './helpers';
 import type { Db } from '../db';
 
@@ -28,9 +30,9 @@ describe('food logging', () => {
     db.close();
   });
 
-  const post = (url: string, payload: unknown) =>
+  const post = (url: string, payload?: Payload): Res =>
     app.inject({ method: 'POST', url, payload, headers: { cookie } });
-  const get = (url: string) => app.inject({ method: 'GET', url, headers: { cookie } });
+  const get = (url: string): Res => app.inject({ method: 'GET', url, headers: { cookie } });
 
   describe('logging a food', () => {
     it('logs a USDA food and computes its nutrition', async () => {

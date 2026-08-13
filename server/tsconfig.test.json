@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["src"],
+  // The base config excludes tests so they are never emitted into dist/. That also
+  // meant nothing type-checked them, and a column removed from the schema kept being
+  // written by a test that silently no-opped. `exclude` is inherited through
+  // `extends`, so it has to be cleared explicitly here, not just overridden by
+  // `include`.
+  "exclude": []
+}

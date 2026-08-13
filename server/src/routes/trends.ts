@@ -64,8 +64,6 @@ export function registerTrendRoutes(app: FastifyInstance, opts: AppOptions): voi
           window_last: window?.last ?? null,
           window_compliant: window?.compliant ?? null,
           goals_reviewed: entry?.goals_reviewed ?? false,
-          no_meat: entry?.no_meat ?? false,
-          no_dairy: entry?.no_dairy ?? false,
         };
       });
 
@@ -75,6 +73,7 @@ export function registerTrendRoutes(app: FastifyInstance, opts: AppOptions): voi
 
       const loggedDays = rows.filter((r) => r.kcal !== null);
       const windowDays = rows.filter((r) => r.window_compliant !== null);
+      const reviewedDays = rows.filter((r) => r.goals_reviewed);
 
       return {
         from,
@@ -97,15 +96,8 @@ export function registerTrendRoutes(app: FastifyInstance, opts: AppOptions): voi
             windowDays.length,
             windowDays.filter((r) => r.window_compliant).length,
           ),
-          goals_reviewed_days: rows.filter((r) => r.goals_reviewed).length,
-          goals_review_rate: complianceRate(
-            rows.length,
-            rows.filter((r) => r.goals_reviewed).length,
-          ),
-          goals_review_streak: currentStreak(
-            range,
-            new Set(rows.filter((r) => r.goals_reviewed).map((r) => r.day)),
-          ),
+          goals_review_rate: complianceRate(rows.length, reviewedDays.length),
+          goals_review_streak: currentStreak(range, new Set(reviewedDays.map((r) => r.day))),
         },
       };
     },

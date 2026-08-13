@@ -87,7 +87,18 @@ export const NIGHT_SPLIT_HOUR = 12;
  */
 export function bedtimeBelongsTo(timezone: string, now = new Date()): string {
   const day = todayIn(timezone, now.getTime());
-  return now.getHours() >= NIGHT_SPLIT_HOUR ? addDays(day, 1) : day;
+  // Both halves of the decision read the same clock. Taking the day from the given
+  // timezone but the hour from the browser would split the night at the wrong
+  // moment for anyone whose device is not set to their account's zone.
+  const hour = Number(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: '2-digit',
+      hourCycle: 'h23',
+    }).format(now),
+  );
+
+  return hour >= NIGHT_SPLIT_HOUR ? addDays(day, 1) : day;
 }
 
 /**

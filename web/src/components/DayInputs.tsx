@@ -38,10 +38,9 @@ export function WeightInput({
 /**
  * Sleep, as the night that ended on the morning of the day being shown.
  *
- * The two buttons stamp the current time so nothing has to be typed at 6am. "Got
- * Up" fills in the day on screen. "Laying Down" belongs to the night that ends
- * *tomorrow*, so it is filed there and says so — otherwise pressing it would look
- * like it did nothing, or worse, would overwrite last night's bedtime.
+ * The two buttons stamp the current time so nothing has to be typed at 6am. Where
+ * each stamp is filed, and the confirmation that says so, belong to the caller —
+ * this stays a leaf input.
  */
 export function SleepInput({
   day,
@@ -56,11 +55,10 @@ export function SleepInput({
   isToday: boolean;
   onSave: (start: number | null, end: number | null) => void;
   onStampWake: () => void;
-  onStampBed: () => Promise<string>;
+  onStampBed: () => void;
 }) {
   const [bed, setBed] = useState(toTimeInput(day.sleep_start));
   const [wake, setWake] = useState(toTimeInput(day.sleep_end));
-  const [filed, setFiled] = useState('');
 
   function commit(nextBed: string, nextWake: string) {
     setBed(nextBed);
@@ -73,12 +71,6 @@ export function SleepInput({
     if (bedMs >= wakeMs) bedMs -= 86_400_000;
 
     onSave(bedMs, wakeMs);
-  }
-
-  async function layDown() {
-    const label = await onStampBed();
-    setFiled(label);
-    setTimeout(() => setFiled(''), 6000);
   }
 
   return (
@@ -111,7 +103,7 @@ export function SleepInput({
             onChange={(e) => commit(e.target.value, wake)}
           />
           {isToday && (
-            <button className="btn sleep-btn" onClick={layDown}>
+            <button className="btn sleep-btn" onClick={onStampBed}>
               Laying Down
             </button>
           )}
@@ -128,8 +120,6 @@ export function SleepInput({
           </>
         )}
       </div>
-
-      {filed && <div className="toast tiny">{filed}</div>}
     </div>
   );
 }

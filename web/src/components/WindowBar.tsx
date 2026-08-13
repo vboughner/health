@@ -35,45 +35,40 @@ export function WindowBar({ window: w }: { window: DaySummary['window'] }) {
     </div>
   );
 
-  if (w.first === null || w.last === null) {
-    return (
-      <div className="win">
-        <div className="win-track">
-          <div className="win-target" style={barStyle(targetStart, targetEnd)} />
-        </div>
-        <div className="win-labels">
-          <span className="faint tiny">Nothing logged yet</span>
-        </div>
-        {rule}
-      </div>
-    );
-  }
-
-  const first = toMinutes(w.first);
-  const last = toMinutes(w.last);
+  const logged = w.first !== null && w.last !== null;
+  const first = logged ? toMinutes(w.first!) : 0;
+  const last = logged ? toMinutes(w.last!) : 0;
 
   return (
     <div className="win">
       <div className="win-track">
         <div className="win-target" style={barStyle(targetStart, targetEnd)} />
-        <div
-          className={`win-actual ${intact ? 'win-ok' : 'win-bad'}`}
-          style={barStyle(first, Math.max(last, first + 6))}
-        />
+        {logged && (
+          <div
+            className={`win-actual ${intact ? 'win-ok' : 'win-bad'}`}
+            style={barStyle(first, Math.max(last, first + 6))}
+          />
+        )}
       </div>
 
       <div className="win-labels">
-        <span className={w.startedOnTime ? '' : 'win-late'}>
-          {w.first}
-          <span className="faint tiny"> first</span>
-        </span>
-        <span className="faint tiny">
-          {w.spanMinutes !== null ? `${formatSpan(w.spanMinutes)} window` : 'one entry'}
-        </span>
-        <span className={w.endedOnTime ? '' : 'win-late'}>
-          {w.last}
-          <span className="faint tiny"> last</span>
-        </span>
+        {logged ? (
+          <>
+            <span className={w.startedOnTime ? '' : 'win-late'}>
+              {w.first}
+              <span className="faint tiny"> first</span>
+            </span>
+            <span className="faint tiny">
+              {w.spanMinutes !== null ? `${formatSpan(w.spanMinutes)} window` : 'one entry'}
+            </span>
+            <span className={w.endedOnTime ? '' : 'win-late'}>
+              {w.last}
+              <span className="faint tiny"> last</span>
+            </span>
+          </>
+        ) : (
+          <span className="faint tiny">Nothing logged yet</span>
+        )}
       </div>
 
       {rule}

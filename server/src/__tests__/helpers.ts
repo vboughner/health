@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, InjectOptions, LightMyRequestResponse } from 'fastify';
 import { openDatabase, type Db } from '../db';
 import { buildApp } from '../app';
 import { createUser } from '../auth';
@@ -83,3 +83,14 @@ export async function loginAs(
 
   return { userId: user.id, cookie: raw.split(';')[0] };
 }
+
+/**
+ * Payload and response types for `app.inject`.
+ *
+ * Annotating the return type is what matters: without it `app.inject(opts)` resolves
+ * to the callback overload that returns void, so every `.statusCode` and `.json()`
+ * in a suite fails to type-check — which is how a test kept writing a column that
+ * had been dropped from the schema.
+ */
+export type Payload = InjectOptions['payload'];
+export type Res = Promise<LightMyRequestResponse>;

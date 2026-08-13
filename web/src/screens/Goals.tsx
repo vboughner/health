@@ -62,12 +62,10 @@ const PLAN: Section[] = [
 export function Goals({
   date,
   today,
-  onBack,
   onReviewed,
 }: {
   date: string;
   today: string;
-  onBack: () => void;
   onReviewed: () => void;
 }) {
   const [reviewed, setReviewed] = useState<boolean | null>(null);
@@ -103,16 +101,11 @@ export function Goals({
     }
   }
 
-  const forDay = date === today ? 'today' : shortDayLabel(date, today);
+  const forDay = shortDayLabel(date, today);
 
   return (
     <div className="stack">
-      <div className="row">
-        <h1 className="screen-title">The plan</h1>
-        <button className="btn-ghost tiny" onClick={onBack}>
-          Done
-        </button>
-      </div>
+      <h1 className="screen-title">The plan</h1>
 
       {PLAN.map((section) => (
         <div className="card" key={section.title}>
@@ -126,15 +119,11 @@ export function Goals({
       ))}
 
       {reviewed ? (
-        <div className="reviewed-note">
+        <div className="toast reviewed-note">
           <span aria-hidden="true">✓</span> Reviewed {forDay}
         </div>
       ) : (
-        <button
-          className="btn btn-primary btn-block"
-          onClick={confirm}
-          disabled={busy || reviewed === null}
-        >
+        <button className="btn btn-primary btn-block" onClick={confirm} disabled={busy}>
           {busy ? <span className="spinner" /> : `I have reviewed these ${forDay}`}
         </button>
       )}

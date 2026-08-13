@@ -115,7 +115,6 @@ export interface DaySummary {
     measuredShare: number;
     target: number;
   };
-  net: { net: number; tooLow: boolean };
   window: {
     first: string | null;
     last: string | null;

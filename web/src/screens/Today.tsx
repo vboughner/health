@@ -27,6 +27,7 @@ export function Today({
   const [summary, setSummary] = useState<DaySummary | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
@@ -47,6 +48,13 @@ export function Today({
       cancelled = true;
     };
   }, [date, refreshKey, version]);
+
+  // Clear a stale confirmation when the day changes out from under it.
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(''), 6000);
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,11 +100,17 @@ export function Today({
     );
   }
 
-  // Stepping to another day keeps the previous day on screen, dimmed, until the
-  // new one arrives. Swapping it for a spinner collapsed the page to a couple of
-  // rows and back, which reads as a flicker and throws away the scroll position.
-  // Interaction is off while stale so a tap cannot land on the day being left.
+  // Stepping to another day keeps the previous day on screen, dimmed, until the new
+  // one arrives. Swapping it for a spinner collapsed the page to a couple of rows and
+  // back, which reads as a flicker and throws away the scroll position.
+  //
+  // Everything below the nav therefore renders from `shown` — the day we actually
+  // have — never from `date`, which may already point at the day being fetched. Only
+  // DayNav follows `date`, so the arrows stay responsive. That keeps the dimming
+  // cosmetic: a write during the gap still lands on the day on screen.
   const stale = summary.date !== date;
+  const shown = summary.date;
+  const showingToday = shown === today;
 
   const { food, exercise, window: win, day } = summary;
   const patchOn = (on: string, patch: Partial<DayEntry>) => act(() => api.put(`/day/${on}`, patch));
@@ -114,7 +128,7 @@ export function Today({
   return (
     <div className="stack">
       <div className="row">
-        <h1 className="screen-title">{date === today ? 'Today' : 'Day'}</h1>
+        <h1 className="screen-title">{showingToday ? 'Today' : 'Day'}</h1>
         <button className="btn-ghost tiny" onClick={onLogout}>
           Log out
         </button>
@@ -124,7 +138,7 @@ export function Today({
 
       {error && <div className="error">{error}</div>}
 
-      <div className={stale ? 'day-body day-body-stale' : 'day-body'} aria-busy={stale}>
+      <div className={stale ? 'stack day-body day-body-stale' : 'stack day-body'} aria-busy={stale}>
         <div className="card">
           <CalorieHeader eaten={food.totals.kcal} budget={food.budget} isToday={date === today} />
         </div>
@@ -144,7 +158,7 @@ export function Today({
         </div>
 
         <div className="card">
-          <div className="card-title">{date === today ? 'Eaten today' : 'Eaten'}</div>
+          <div className="card-title">{showingToday ? 'Eaten today' : 'Eaten'}</div>
           {food.entries.length === 0 ? (
             <div className="empty">Nothing logged.</div>
           ) : (
@@ -190,7 +204,7 @@ export function Today({
           <ExerciseInput
             activities={activities}
             onAdd={(activity, minutes) =>
-              act(() => api.post('/log/exercise', { activity, minutes, date }))
+              act(() => api.post('/log/exercise', { activity, minutes, date: shown }))
             }
           />
         </div>
@@ -199,12 +213,12 @@ export function Today({
           <div className="card-title">Body</div>
           <div className="stack">
             <WeightInput
-              key={`w-${summary.date}`}
+              key={`w-${shown}`}
               weight={day.weight_lb}
               onSave={(lb) => patchDay({ weight_lb: lb })}
             />
             <SleepInput
-              key={`s-${summary.date}`}
+              key={`s-${shown}`}
               day={day}
               hours={day.sleep_hours}
               isToday={date === today}

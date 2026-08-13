@@ -1,15 +1,15 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppOptions } from '../app';
-import { localDay, localMinutes, parseHHMM, eatingWindow, sleepHours } from '../domain/day';
+import { localDay, eatingWindow, sleepHours } from '../domain/day';
 import { sumNutrition, macroSplit } from '../domain/nutrition';
-import { summarizeBurn, netIntake } from '../domain/exercise';
+import { summarizeBurn } from '../domain/exercise';
 import { listFoodLog, listExercise, getDailyEntry } from '../store';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * One call powering the whole Today screen: what was eaten, what was burned, the
- * eating window derived from the log, sleep, weight, and the check-in boxes.
+ * eating window derived from the log, sleep, and weight.
  *
  * Assembling it server-side keeps the phone to a single request and means the
  * derived numbers are computed once, in the place that owns the rules.
@@ -20,16 +20,10 @@ export function registerSummaryRoutes(app: FastifyInstance, opts: AppOptions): v
     { preHandler: app.requireUser },
     async (request, reply) => {
       const user = request.user!;
-      const now = Date.now();
-      const today = localDay(now, user.timezone);
+      const today = localDay(Date.now(), user.timezone);
       const date = request.params.date === 'today' ? today : request.params.date;
 
       if (!DATE_RE.test(date)) return reply.code(400).send({ error: 'Expected a YYYY-MM-DD date' });
-
-      // A past day is settled; today is only settled once the eating window closes.
-      const dayIsOver =
-        date < today ||
-        (date === today && localMinutes(now, user.timezone) >= parseHHMM(user.window_end));
 
       const foods = listFoodLog(opts.db, user.id, date);
       const exercise = listExercise(opts.db, user.id, date);
@@ -58,7 +52,6 @@ export function registerSummaryRoutes(app: FastifyInstance, opts: AppOptions): v
           ...burn,
           target: user.daily_burn_target,
         },
-        net: netIntake(totals.kcal, burn.total, dayIsOver),
         window: {
           ...window,
           target_start: user.window_start,

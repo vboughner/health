@@ -28,7 +28,6 @@ interface Trends {
     days_logged: number;
     days_under_budget: number;
     window_compliance: number;
-    goals_reviewed_days: number;
     goals_review_rate: number;
     goals_review_streak: number;
   };
@@ -162,11 +161,6 @@ export function Trends({ refreshKey }: { refreshKey: number }) {
           <Line label="Calories burned" value={s.avg_burned} unit="cal" target={data.burn_target} />
           <Line label="Sleep" value={s.avg_sleep_hours} unit="h" />
           <Line label="Days logged" value={s.days_logged} unit={`of ${data.days.length}`} />
-          <Line
-            label="Goals reviewed"
-            value={s.goals_reviewed_days}
-            unit={`of ${data.days.length} days`}
-          />
         </div>
       </div>
     </div>

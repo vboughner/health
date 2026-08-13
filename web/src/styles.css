@@ -882,43 +882,6 @@ textarea:focus {
   font-variant-numeric: tabular-nums;
 }
 
-.sleep-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  /* The two time inputs plus the total must fit a 390px phone without clipping. */
-  min-width: 0;
-}
-
-.sleep-row .inline-field {
-  flex: 1 1 0;
-  min-width: 0;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 5px;
-}
-
-.sleep-row input {
-  min-width: 0;
-  padding-left: 10px;
-  padding-right: 10px;
-}
-
-.sleep-row .inline-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-faint);
-}
-
-.sleep-total {
-  flex: 0 0 auto;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  padding-top: 16px;
-  white-space: nowrap;
-}
-
 /* ---------- exercise ---------- */
 
 .ex-form {
@@ -1157,10 +1120,11 @@ textarea:focus {
 /* ---------- day navigation ---------- */
 
 .daynav {
-  position: relative;
-  display: flex;
+  display: grid;
+  /* Equal side columns centre the label whether or not the right-hand group is
+     rendered, with no absolute positioning and no overlap to guard against. */
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   gap: 6px;
   min-height: 50px;
   background: var(--surface);
@@ -1172,11 +1136,13 @@ textarea:focus {
 .daynav-right {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px;
 }
 
 .daynav-arrow {
   width: 40px;
+  justify-self: start;
   height: 40px;
   flex-shrink: 0;
   display: flex;
@@ -1196,21 +1162,17 @@ textarea:focus {
   opacity: 0.6;
 }
 
-.daynav-arrow:disabled {
-  opacity: 0.3;
-  cursor: default;
-}
-
 /* The label is a <label> wrapping a real date input, so tapping it opens the
    phone's own picker. The input itself is invisible but still hit-testable.
 
-   Absolutely centred on the bar rather than flexed between the controls, so it
-   reads dead-centre whether or not the forward arrow and Today button are there. */
+   It sits in the middle grid column, so it reads dead-centre whether or not the
+   forward arrow and Today button are there. */
 .daynav-label {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: 54%;
+  /* Containing block for the invisible date input below, which is absolutely
+     positioned to fill the label. Without this it escapes to an ancestor and
+     covers the arrows, swallowing their taps. */
+  position: relative;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1353,22 +1315,15 @@ textarea:focus {
   color: var(--accent);
 }
 
+/* Applied with .toast, which supplies the accent-dim box. */
 .reviewed-note {
-  background: var(--accent-dim);
-  color: var(--text);
-  border-radius: 11px;
-  padding: 13px 16px;
-  font-size: 15px;
   font-weight: 600;
   text-align: center;
 }
 
-/* Wrapper around the day's cards, so stepping between days can cross-fade
-   instead of collapsing the page to a spinner and back. */
+/* Used alongside .stack, which already supplies the column layout — this only
+   adds the fade for stepping between days. */
 .day-body {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
   transition: opacity 0.18s ease;
 }
 

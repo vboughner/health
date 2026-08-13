@@ -79,8 +79,8 @@ food_log          id, user_id, food_id, eaten_at (epoch ms), local_day (YYYY-MM-
 exercise_log      id, user_id, local_day, activity, minutes, kcal,
                   source ('estimated'|'measured'), note
 daily_entries     id, user_id, local_day UNIQUE(user_id,local_day), weight_lb,
-                  sleep_start, sleep_end, reviewed_morning, reviewed_night,
-                  no_meat, no_dairy, note
+                  sleep_start, sleep_end, goals_reviewed, no_meat, no_dairy, note
+                  -- 002 folded reviewed_morning/reviewed_night into goals_reviewed
 schema_migrations version, applied_at
 ```
 
@@ -96,16 +96,17 @@ Timestamps are stored as UTC epoch millis plus a denormalized `local_day` comput
 | `POST /foods` | manual food (works with no USDA key) |
 | `POST /log/food`, `DELETE /log/food/:id` | log entries |
 | `POST /log/exercise`, `DELETE /log/exercise/:id` | log entries |
-| `GET /day/:date`, `PUT /day/:date` | weight, sleep, check-in boxes |
+| `GET /day/:date`, `PUT /day/:date` | weight, sleep, goals-reviewed flag |
 | `GET /summary/:date` | **one call powering the whole Today screen** |
 | `GET /trends?days=30` | arrays for the charts |
 
 ### Screens
 
-1. **Today** (default) — calories eaten / remaining against 2400; macro % bar; eating-window bar showing first and last bite against 9–7 with compliance color; exercise burned vs 960 and net intake (the goals note warns net can dip too low on heavy days — surface it); weight, sleep, check-in boxes; today's entries with swipe-to-delete.
+1. **Day** (default) — calories eaten / remaining against 2400; macro % bar; eating-window bar showing first and last bite against 9–7, with the target and a met/not-met verdict on one line; today's entries; exercise burned vs 960; weight and sleep. Arrows and a date picker step to any past day, which stays editable.
 2. **Add food** — one search box over saved foods + USDA, results carry a ⚠ chip if flagged; pick → serving/quantity → live kcal/macro preview → log. Amber banner if the food is flagged. Manual-entry escape hatch.
-3. **Trends** — weight line with a trend fit, daily calories vs the 2400 line, eating-window compliance strip, check-in streak. 14 / 30 / 90 day toggle.
-4. **Login** — username + password.
+3. **Trends** — weight line with a trend fit, daily calories vs the 2400 line, eating-window and goals-reviewed compliance strips, goal-review streak. 14 / 30 / 90 day toggle.
+4. **Goals** — "The Plan" from the vault note, with a button confirming you have read it today.
+5. **Login** — username + password.
 
 ### Processed-food classifier (`domain/processed.ts`)
 
@@ -156,6 +157,7 @@ Each phase ends in something runnable. Tests are written alongside, per the gril
 **Automated** — `npm run check` at the repo root (vitest + eslint + prettier), matching griljor's gate:
 - Unit tests for every `domain/` function: serving math, macro percentages, MET calc, processed classifier (whole foods clean, junk flagged, thresholds at the boundary), day boundaries across a DST change, eating-window derivation with zero / one / many entries.
 - Integration tests via Fastify `app.inject()` against a fresh in-memory SQLite DB: login required on every route; a second user cannot read the first user's log entries (the isolation the goals note asks for); log → summary round-trip produces the expected totals.
+- Migrations run in order at startup; `002` folds the two check-in flags into `goals_reviewed`.
 - USDA client tested against a fake; the suite never hits the network.
 
 **Manual, local, before any deploy:**
@@ -164,7 +166,7 @@ Each phase ends in something runnable. Tests are written alongside, per the gril
 3. Log a full realistic day; check totals, remaining-against-2400, macro split, and that the eating window bar reflects the first and last entry times.
 4. Log something refined (white bread, a packaged snack) — confirm the amber banner and the persistent ⚠ chip on that food in later searches.
 5. Enter a climbing session by duration and confirm the estimate; then enter a watch number and confirm it overrides and is marked measured.
-6. Enter weight and sleep times; confirm hours slept computes and the check-in boxes persist across a reload.
+6. Enter weight and sleep times; confirm hours slept computes and persists across a reload.
 7. Backfill a few days, open Trends, confirm the charts render on a phone-width viewport.
 8. Add to home screen from the phone over LAN; confirm it opens full-screen and the shell loads offline.
 

@@ -226,13 +226,16 @@ export function CalorieChart({ points, budget }: { points: Series[]; budget: num
  */
 export function ComplianceStrip({
   days,
-  labels = { ok: 'Within', bad: 'Outside', none: 'Not logged' },
+  labels,
 }: {
   days: { day: string; ok: boolean | null }[];
-  labels?: { ok: string; bad: string; none?: string };
+  labels?: Partial<{ ok: string; bad: string; none: string }>;
 }) {
-  const describe = (ok: boolean | null) =>
-    ok === null ? (labels.none ?? 'no data') : ok ? labels.ok : labels.bad;
+  // Per key, so a caller supplying only ok/bad still gets the standard wording for
+  // the third state instead of falling through to a second, different default.
+  const { ok = 'Within', bad = 'Outside', none = 'Not logged' } = labels ?? {};
+  const describe = (state: boolean | null) => (state === null ? none : state ? ok : bad);
+  const hasUnknown = days.some((d) => d.ok === null);
 
   return (
     <div className="strip-wrap">
@@ -246,12 +249,10 @@ export function ComplianceStrip({
         ))}
       </div>
       <div className="strip-legend">
-        <LegendItem cls="strip-ok" label={labels.ok} />
-        <LegendItem cls="strip-bad" label={labels.bad} />
+        <LegendItem cls="strip-ok" label={ok} />
+        <LegendItem cls="strip-bad" label={bad} />
         {/* Only shown when the series actually has an unknown state. */}
-        {labels.none && days.some((d) => d.ok === null) && (
-          <LegendItem cls="strip-none" label={labels.none} />
-        )}
+        {hasUnknown && <LegendItem cls="strip-none" label={none} />}
       </div>
     </div>
   );

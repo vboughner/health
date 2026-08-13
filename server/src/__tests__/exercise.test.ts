@@ -1,12 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  estimateKcal,
-  summarizeBurn,
-  netIntake,
-  isActivity,
-  ACTIVITIES,
-  NET_INTAKE_FLOOR,
-} from '../domain/exercise';
+import { estimateKcal, summarizeBurn, isActivity, ACTIVITIES } from '../domain/exercise';
 
 describe('estimateKcal', () => {
   it('estimates a 30 minute run at the starting weight from the goals note', () => {
@@ -100,46 +93,5 @@ describe('summarizeBurn', () => {
 
   it('reports a fully estimated day as 0 percent', () => {
     expect(summarizeBurn([{ kcal: 600, source: 'estimated' }]).measuredShare).toBe(0);
-  });
-});
-
-describe('netIntake', () => {
-  it('subtracts exercise from intake', () => {
-    expect(netIntake(2400, 960)).toEqual({ net: 1440, tooLow: false });
-  });
-
-  it('flags a day where the deficit leaves net intake too low', () => {
-    // The exact scenario the goals note warns about: a big training day against a
-    // light eating day.
-    expect(netIntake(1800, 960).tooLow).toBe(true);
-  });
-
-  it('does not flag exactly at the floor', () => {
-    expect(netIntake(NET_INTAKE_FLOOR, 0).tooLow).toBe(false);
-  });
-
-  it('flags one calorie below the floor', () => {
-    expect(netIntake(NET_INTAKE_FLOOR - 1, 0).tooLow).toBe(true);
-  });
-
-  it('does not flag a day with nothing eaten yet', () => {
-    // Every morning starts at zero — that is not a warning, it is breakfast pending.
-    expect(netIntake(0, 0).tooLow).toBe(false);
-    expect(netIntake(0, 500).tooLow).toBe(false);
-  });
-
-  it('stays quiet while the day is still in progress', () => {
-    // Breakfast plus a morning run is under the floor every single day. Warning
-    // then would fire daily and stop meaning anything.
-    expect(netIntake(700, 400, false).tooLow).toBe(false);
-    expect(netIntake(700, 400, true).tooLow).toBe(true);
-  });
-
-  it('still reports the net number while the day is in progress', () => {
-    expect(netIntake(700, 400, false).net).toBe(300);
-  });
-
-  it('can go negative on a very heavy training day', () => {
-    expect(netIntake(500, 900).net).toBe(-400);
   });
 });
