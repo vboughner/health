@@ -11,3 +11,7 @@ dist/
 *.db-wal
 *.db-shm
 data/
+
+# Per-machine Claude Code settings. The shared .claude/settings.json is tracked;
+# this one holds whatever a single machine happened to approve.
+.claude/settings.local.json
