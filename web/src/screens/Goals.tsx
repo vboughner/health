@@ -138,10 +138,6 @@ export function Goals({
           {busy ? <span className="spinner" /> : `I have reviewed these ${forDay}`}
         </button>
       )}
-
-      <button className="btn btn-block" onClick={onBack}>
-        Back
-      </button>
     </div>
   );
 }

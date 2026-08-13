@@ -16,7 +16,6 @@ export function Today({
   onChangeDate,
   refreshKey,
   onLogout,
-  onReviewGoals,
 }: {
   user: User;
   date: string;
@@ -24,7 +23,6 @@ export function Today({
   onChangeDate: (day: string) => void;
   refreshKey: number;
   onLogout: () => void;
-  onReviewGoals: () => void;
 }) {
   const [summary, setSummary] = useState<DaySummary | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -216,10 +214,6 @@ export function Today({
             />
           </div>
         </div>
-
-        <button className="btn btn-block" onClick={onReviewGoals}>
-          Review my goals
-        </button>
       </div>
     </div>
   );
