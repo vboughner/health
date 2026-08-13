@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppOptions } from '../app';
-import { localDay, eatingWindow, sleepHours } from '../domain/day';
+import { localDay, addDays, eatingWindow, sleepHours } from '../domain/day';
 import { sumNutrition, macroSplit } from '../domain/nutrition';
 import { summarizeBurn } from '../domain/exercise';
 import { listFoodLog, listExercise, getDailyEntry } from '../store';
@@ -28,6 +28,10 @@ export function registerSummaryRoutes(app: FastifyInstance, opts: AppOptions): v
       const foods = listFoodLog(opts.db, user.id, date);
       const exercise = listExercise(opts.db, user.id, date);
       const day = getDailyEntry(opts.db, user.id, date);
+      // A night spans two records: you went to bed yesterday evening and got up
+      // this morning. Each field belongs to the calendar day you did it on, so the
+      // pair has to be read across the boundary.
+      const previous = getDailyEntry(opts.db, user.id, addDays(date, -1));
 
       const totals = sumNutrition(foods);
       const burn = summarizeBurn(exercise);
@@ -59,7 +63,7 @@ export function registerSummaryRoutes(app: FastifyInstance, opts: AppOptions): v
         },
         day: {
           ...day,
-          sleep_hours: sleepHours(day.sleep_start, day.sleep_end),
+          sleep_hours: sleepHours(previous.sleep_start, day.sleep_end),
         },
       };
     },

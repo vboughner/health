@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppOptions } from '../app';
-import { localDay, dayRange, eatingWindow, sleepHours } from '../domain/day';
+import { localDay, addDays, dayRange, eatingWindow, sleepHours } from '../domain/day';
 import { weeklyTrend, movingAverage, currentStreak, complianceRate } from '../domain/trend';
 import { foodTotalsByDay, burnByDay, dailyEntriesInRange } from '../store';
 
@@ -33,8 +33,13 @@ export function registerTrendRoutes(app: FastifyInstance, opts: AppOptions): voi
         foodTotalsByDay(opts.db, user.id, from, today).map((r) => [r.local_day, r]),
       );
       const burn = new Map(burnByDay(opts.db, user.id, from, today).map((r) => [r.local_day, r]));
+      // One extra day back: a night's hours pair the previous evening's bedtime
+      // with this morning's wake time.
       const entries = new Map(
-        dailyEntriesInRange(opts.db, user.id, from, today).map((r) => [r.local_day, r]),
+        dailyEntriesInRange(opts.db, user.id, addDays(from, -1), today).map((r) => [
+          r.local_day,
+          r,
+        ]),
       );
 
       const rows = range.map((day) => {
@@ -59,7 +64,10 @@ export function registerTrendRoutes(app: FastifyInstance, opts: AppOptions): voi
           burned: burn.get(day)?.kcal ?? null,
           exercise_minutes: burn.get(day)?.minutes ?? null,
           weight_lb: entry?.weight_lb ?? null,
-          sleep_hours: sleepHours(entry?.sleep_start ?? null, entry?.sleep_end ?? null),
+          sleep_hours: sleepHours(
+            entries.get(addDays(day, -1))?.sleep_start ?? null,
+            entry?.sleep_end ?? null,
+          ),
           window_first: window?.first ?? null,
           window_last: window?.last ?? null,
           window_compliant: window?.compliant ?? null,

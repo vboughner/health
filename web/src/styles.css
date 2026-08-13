@@ -893,7 +893,7 @@ textarea:focus {
 
 .ex-fields {
   display: grid;
-  grid-template-columns: 1fr 118px;
+  grid-template-columns: 1fr 92px;
   gap: 10px;
   align-items: center;
 }

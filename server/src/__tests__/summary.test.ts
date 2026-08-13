@@ -89,17 +89,22 @@ describe('daily entry and summary', () => {
       expect((await get(`/api/day/${DAY}`)).json().day.no_meat).toBe(false);
     });
 
-    it('computes hours slept across midnight', async () => {
-      await put(`/api/day/${DAY}`, {
-        sleep_start: Date.parse(`${DAY}T22:30:00-08:00`),
-        sleep_end: Date.parse('2026-01-16T06:15:00-08:00'),
-      });
+    it("pairs last night's bedtime with this morning's wake time", async () => {
+      // Each field sits on the day it happened: bed on the 14th, up on the 15th.
+      await put('/api/day/2026-01-14', { sleep_start: Date.parse('2026-01-14T22:30:00-08:00') });
+      await put(`/api/day/${DAY}`, { sleep_end: Date.parse(`${DAY}T06:15:00-08:00`) });
 
       expect((await summary()).day.sleep_hours).toBe(7.8);
     });
 
-    it('reports null hours when only one end is recorded', async () => {
-      await put(`/api/day/${DAY}`, { sleep_start: at('22:30') });
+    it('reports no hours when the previous evening has no bedtime', async () => {
+      await put(`/api/day/${DAY}`, { sleep_end: Date.parse(`${DAY}T06:15:00-08:00`) });
+
+      expect((await summary()).day.sleep_hours).toBeNull();
+    });
+
+    it('reports null hours when only the bedtime is recorded', async () => {
+      await put('/api/day/2026-01-14', { sleep_start: Date.parse('2026-01-14T22:30:00-08:00') });
       expect((await summary()).day.sleep_hours).toBeNull();
     });
 
@@ -242,11 +247,13 @@ describe('daily entry and summary', () => {
     });
 
     it('rolls up food, exercise, window, and sleep in one call', async () => {
+      await put('/api/day/2026-01-14', {
+        sleep_start: Date.parse('2026-01-14T22:30:00-08:00'),
+      });
       await put(`/api/day/${DAY}`, {
         weight_lb: 195,
         no_meat: true,
         goals_reviewed: true,
-        sleep_start: Date.parse(`2026-01-14T22:30:00-08:00`),
         sleep_end: Date.parse(`${DAY}T06:30:00-08:00`),
       });
       await logFood(89, 500, '09:30');

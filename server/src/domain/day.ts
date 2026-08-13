@@ -116,6 +116,12 @@ export function sleepHours(start: number | null, end: number | null): number | n
   return Math.round(((end - start) / 3_600_000) * 10) / 10;
 }
 
+/** Shift a YYYY-MM-DD day by whole days. Noon UTC keeps DST out of the arithmetic. */
+export function addDays(day: string, delta: number): string {
+  const base = new Date(`${day}T12:00:00Z`).getTime();
+  return new Date(base + delta * 86_400_000).toISOString().slice(0, 10);
+}
+
 /** The N calendar days ending at `endDay` inclusive, oldest first. */
 export function dayRange(endDay: string, days: number): string[] {
   const result: string[] = [];

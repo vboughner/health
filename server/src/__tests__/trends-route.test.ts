@@ -146,13 +146,27 @@ describe('GET /api/trends', () => {
     expect((await get('/api/trends?days=4')).json().summary.goals_review_rate).toBe(50);
   });
 
-  it('averages sleep over the nights it was recorded', async () => {
-    await put(`/api/day/${today}`, {
+  it('averages sleep, pairing each morning with the previous evening', async () => {
+    await put(`/api/day/${daysAgo(1)}`, {
       sleep_start: Date.parse(`${daysAgo(1)}T22:00:00-08:00`),
-      sleep_end: Date.parse(`${today}T06:00:00-08:00`),
     });
+    await put(`/api/day/${today}`, { sleep_end: Date.parse(`${today}T06:00:00-08:00`) });
 
     expect((await get('/api/trends?days=7')).json().summary.avg_sleep_hours).toBe(8);
+  });
+
+  it('reaches back before the range for a bedtime that starts the first night', async () => {
+    // The bedtime is a day outside the window; the hours still land on the first day.
+    await put(`/api/day/${daysAgo(7)}`, {
+      sleep_start: Date.parse(`${daysAgo(7)}T22:00:00-08:00`),
+    });
+    await put(`/api/day/${daysAgo(6)}`, {
+      sleep_end: Date.parse(`${daysAgo(6)}T06:00:00-08:00`),
+    });
+
+    const rows = (await get('/api/trends?days=7')).json().days;
+    expect(rows[0].day).toBe(daysAgo(6));
+    expect(rows[0].sleep_hours).toBe(8);
   });
 
   it('averages burned calories over the days with exercise', async () => {

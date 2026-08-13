@@ -262,15 +262,17 @@ function main() {
       });
     }
 
+    // Bed that evening, up that morning — two different nights on one record.
     const sleepStart = new Date(midnight).setHours(
-      -1 - Math.floor(random() * 2),
+      22 + Math.floor(random() * 2),
       Math.floor(random() * 59),
     );
     const sleepEnd = new Date(midnight).setHours(6, Math.floor(random() * 55));
 
     upsertDailyEntry(db, user.id, day, {
       weight_lb: random() < 0.85 ? reading : null,
-      sleep_start: sleepStart,
+      // Tonight's bedtime has not happened yet if it is still afternoon.
+      sleep_start: isToday && nowHour < 22 ? null : sleepStart,
       sleep_end: sleepEnd,
       goals_reviewed: random() < 0.8,
       no_meat: true,

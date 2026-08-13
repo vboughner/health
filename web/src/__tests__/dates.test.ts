@@ -133,28 +133,28 @@ describe('nowTime', () => {
 describe('bedtimeBelongsTo', () => {
   const LOCAL = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-  it('files an evening bedtime under the next morning', () => {
-    // Tuesday 10:45pm belongs to Wednesday, the day you wake up.
-    expect(bedtimeBelongsTo(LOCAL, new Date(2026, 7, 11, 22, 45))).toBe('2026-08-12');
+  it('files an evening bedtime under that same evening', () => {
+    // Going to bed Tuesday night is a Tuesday event, so it lands on Tuesday.
+    expect(bedtimeBelongsTo(LOCAL, new Date(2026, 7, 11, 22, 45))).toBe('2026-08-11');
   });
 
-  it('files a small-hours bedtime under the same day', () => {
-    // 00:30 Wednesday is already the night that ends Wednesday morning.
-    expect(bedtimeBelongsTo(LOCAL, new Date(2026, 7, 12, 0, 30))).toBe('2026-08-12');
-    expect(bedtimeBelongsTo(LOCAL, new Date(2026, 7, 12, 2, 15))).toBe('2026-08-12');
+  it('files a small-hours bedtime under the evening that just ended', () => {
+    // 00:30 Wednesday is still Tuesday night as far as going to bed goes.
+    expect(bedtimeBelongsTo(LOCAL, new Date(2026, 7, 12, 0, 30))).toBe('2026-08-11');
+    expect(bedtimeBelongsTo(LOCAL, new Date(2026, 7, 12, 2, 15))).toBe('2026-08-11');
   });
 
   it('splits at noon', () => {
-    expect(bedtimeBelongsTo(LOCAL, new Date(2026, 7, 11, 11, 59))).toBe('2026-08-11');
-    expect(bedtimeBelongsTo(LOCAL, new Date(2026, 7, 11, 12, 0))).toBe('2026-08-12');
+    expect(bedtimeBelongsTo(LOCAL, new Date(2026, 7, 11, 11, 59))).toBe('2026-08-10');
+    expect(bedtimeBelongsTo(LOCAL, new Date(2026, 7, 11, 12, 0))).toBe('2026-08-11');
   });
 
-  it('rolls over a month boundary', () => {
-    expect(bedtimeBelongsTo(LOCAL, new Date(2026, 7, 31, 23, 0))).toBe('2026-09-01');
+  it('rolls back over a month boundary', () => {
+    expect(bedtimeBelongsTo(LOCAL, new Date(2026, 8, 1, 1, 0))).toBe('2026-08-31');
   });
 
-  it('rolls over a year boundary', () => {
-    expect(bedtimeBelongsTo(LOCAL, new Date(2026, 11, 31, 23, 30))).toBe('2027-01-01');
+  it('rolls back over a year boundary', () => {
+    expect(bedtimeBelongsTo(LOCAL, new Date(2027, 0, 1, 0, 30))).toBe('2026-12-31');
   });
 
   it('reads the hour in the given timezone, not the browser one', () => {
@@ -162,7 +162,7 @@ describe('bedtimeBelongsTo', () => {
     // which lands the split on opposite sides.
     const instant = new Date('2026-08-11T09:00:00-07:00');
 
-    expect(bedtimeBelongsTo('America/Los_Angeles', instant)).toBe('2026-08-11');
-    expect(bedtimeBelongsTo('UTC', instant)).toBe('2026-08-12');
+    expect(bedtimeBelongsTo('America/Los_Angeles', instant)).toBe('2026-08-10');
+    expect(bedtimeBelongsTo('UTC', instant)).toBe('2026-08-11');
   });
 });

@@ -116,20 +116,20 @@ export function Today({
   const patchDay = (patch: Partial<DayEntry>) => act(() => api.put(`/day/${shown}`, patch));
 
   /**
-   * File tonight's bedtime under the night it ends, and say where it went.
-   *
-   * That is usually tomorrow, which is not the day on screen — so this reloads only
-   * when the write touches what is displayed, and always reports the outcome, since
-   * otherwise the press would look like it did nothing.
+   * Stamp the bedtime on the evening it belongs to — normally the day on screen, so
+   * the Asleep field updates straight away and a second press overwrites it. Only
+   * after midnight does it land on the evening that just ended, which is worth
+   * saying out loud since the field being edited is then off screen.
    */
   async function stampBedtime() {
     const on = bedtimeBelongsTo(user.timezone);
     try {
       await api.put(`/day/${on}`, { sleep_start: Date.now() });
-      setNotice(
-        on === shown ? 'Bedtime saved.' : `Bedtime saved for ${shortDayLabel(on, today)}'s night.`,
-      );
-      if (on === shown) setVersion((v) => v + 1);
+      if (on === shown) {
+        setVersion((v) => v + 1);
+      } else {
+        setNotice(`Bedtime saved for ${shortDayLabel(on, today)} evening.`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'That did not save');
     }
@@ -150,7 +150,7 @@ export function Today({
 
       <div className={stale ? 'stack day-body day-body-stale' : 'stack day-body'} aria-busy={stale}>
         <div className="card">
-          <CalorieHeader eaten={food.totals.kcal} budget={food.budget} isToday={date === today} />
+          <CalorieHeader eaten={food.totals.kcal} budget={food.budget} isToday={showingToday} />
         </div>
 
         <div className="card">
@@ -228,11 +228,13 @@ export function Today({
               onSave={(lb) => patchDay({ weight_lb: lb })}
             />
             <SleepInput
-              key={`s-${shown}`}
+              // Keyed on the values too, so a stamp that comes back from the server
+              // replaces what the inputs are holding instead of being ignored.
+              key={`s-${shown}-${day.sleep_start}-${day.sleep_end}`}
               day={day}
               hours={day.sleep_hours}
               isToday={showingToday}
-              onSave={(start, end) => patchDay({ sleep_start: start, sleep_end: end })}
+              onSetTime={(field, at) => patchDay({ [field]: at })}
               onStampWake={() => patchDay({ sleep_end: Date.now() })}
               onStampBed={stampBedtime}
             />

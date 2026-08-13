@@ -81,9 +81,10 @@ export const NIGHT_SPLIT_HOUR = 12;
 /**
  * Which day's record a bedtime stamped right now belongs to.
  *
- * A night is filed under the morning it ends, so lying down on Tuesday evening
- * belongs to Wednesday. Lying down at 00:30 is already Wednesday and belongs to
- * that same day — hence the noon split rather than a plain "tomorrow".
+ * Each field is filed under the calendar day you did it on: bedtime on the evening
+ * you went to bed, wake time on the morning you got up. So an evening stamp is
+ * simply today. Past midnight it belongs to the evening that just ended — hence the
+ * noon split rather than a plain "today".
  */
 export function bedtimeBelongsTo(timezone: string, now = new Date()): string {
   const day = todayIn(timezone, now.getTime());
@@ -98,7 +99,7 @@ export function bedtimeBelongsTo(timezone: string, now = new Date()): string {
     }).format(now),
   );
 
-  return hour >= NIGHT_SPLIT_HOUR ? addDays(day, 1) : day;
+  return hour >= NIGHT_SPLIT_HOUR ? day : addDays(day, -1);
 }
 
 /**

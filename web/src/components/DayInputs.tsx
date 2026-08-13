@@ -36,41 +36,37 @@ export function WeightInput({
 }
 
 /**
- * Sleep, as the night that ended on the morning of the day being shown.
+ * Sleep times, each filed under the calendar day it happened on: the bedtime you
+ * started that evening, the wake time you got up that morning. They are not the two
+ * ends of one night — the hours line pairs this morning's wake with *yesterday's*
+ * bedtime — which is why the two fields save independently.
  *
- * The two buttons stamp the current time so nothing has to be typed at 6am. Where
- * each stamp is filed, and the confirmation that says so, belong to the caller —
- * this stays a leaf input.
+ * The buttons stamp the current time so nothing has to be typed at 6am, and pressing
+ * one again just overwrites: useful when you press "Down" and then don't actually
+ * settle for another half hour.
  */
 export function SleepInput({
   day,
   hours,
   isToday,
-  onSave,
+  onSetTime,
   onStampWake,
   onStampBed,
 }: {
   day: DayEntry;
   hours: number | null;
   isToday: boolean;
-  onSave: (start: number | null, end: number | null) => void;
+  onSetTime: (field: 'sleep_start' | 'sleep_end', at: number) => void;
   onStampWake: () => void;
   onStampBed: () => void;
 }) {
   const [bed, setBed] = useState(toTimeInput(day.sleep_start));
   const [wake, setWake] = useState(toTimeInput(day.sleep_end));
 
-  function commit(nextBed: string, nextWake: string) {
-    setBed(nextBed);
-    setWake(nextWake);
-    if (!nextBed || !nextWake) return;
-
-    const wakeMs = onDay(day.local_day, nextWake);
-    let bedMs = onDay(day.local_day, nextBed);
-    // Went to bed "after" waking means the night before.
-    if (bedMs >= wakeMs) bedMs -= 86_400_000;
-
-    onSave(bedMs, wakeMs);
+  function commit(field: 'sleep_start' | 'sleep_end', hhmm: string) {
+    if (field === 'sleep_start') setBed(hhmm);
+    else setWake(hhmm);
+    if (hhmm) onSetTime(field, onDay(day.local_day, hhmm));
   }
 
   return (
@@ -83,7 +79,7 @@ export function SleepInput({
             type="time"
             value={wake}
             aria-label="Awake time"
-            onChange={(e) => commit(bed, e.target.value)}
+            onChange={(e) => commit('sleep_end', e.target.value)}
           />
           {isToday && (
             <button className="btn sleep-btn" onClick={onStampWake}>
@@ -100,7 +96,7 @@ export function SleepInput({
             type="time"
             value={bed}
             aria-label="Asleep time"
-            onChange={(e) => commit(e.target.value, wake)}
+            onChange={(e) => commit('sleep_start', e.target.value)}
           />
           {isToday && (
             <button className="btn sleep-btn" onClick={onStampBed}>
