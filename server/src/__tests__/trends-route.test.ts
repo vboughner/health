@@ -67,8 +67,45 @@ describe('GET /api/trends', () => {
       weight_lb: null,
       sleep_hours: null,
       window_compliant: null,
-      goals_reviewed: false,
+      goals_reviewed: null,
     });
+  });
+
+  it('reports an unreviewed day with activity as false, not unknown', async () => {
+    // The day was lived and logged; the goals genuinely went unreviewed. Only a day
+    // with no record at all is unknown, so a real miss can't hide as a blank cell.
+    await logOn(daysAgo(1), 12, 100, 100);
+
+    const rows = (await get('/api/trends?days=7')).json().days;
+    const row = rows.find((d: { day: string }) => d.day === daysAgo(1));
+
+    expect(row.goals_reviewed).toBe(false);
+  });
+
+  it.each([
+    ['a weigh-in', { weight_lb: 195 } as DailyEntryPatch],
+    ['a wake time', { sleep_end: Date.parse(`2020-01-01T06:00:00-08:00`) } as DailyEntryPatch],
+  ])('counts a day with only %s as unreviewed rather than unknown', async (_label, patch) => {
+    await put(`/api/day/${daysAgo(1)}`, patch);
+
+    const rows = (await get('/api/trends?days=7')).json().days;
+    const row = rows.find((d: { day: string }) => d.day === daysAgo(1));
+
+    expect(row.goals_reviewed).toBe(false);
+  });
+
+  it('marks a day with only exercise as unreviewed rather than unknown', async () => {
+    await post('/api/log/exercise', {
+      activity: 'running',
+      minutes: 30,
+      kcal: 300,
+      date: daysAgo(1),
+    });
+
+    const rows = (await get('/api/trends?days=7')).json().days;
+    const row = rows.find((d: { day: string }) => d.day === daysAgo(1));
+
+    expect(row.goals_reviewed).toBe(false);
   });
 
   it('reports per-day calories', async () => {
@@ -141,9 +178,15 @@ describe('GET /api/trends', () => {
   it('reports the share of days the goals were reviewed', async () => {
     await put(`/api/day/${today}`, { goals_reviewed: true });
     await put(`/api/day/${daysAgo(1)}`, { goals_reviewed: true });
+    await logOn(daysAgo(2), 12, 100, 100); // logged, not reviewed
 
-    // 2 of 4 days.
-    expect((await get('/api/trends?days=4')).json().summary.goals_review_rate).toBe(50);
+    // 2 of the 3 days with any record. The fourth day has nothing on it and is left
+    // out of the denominator, so the figure matches the cells the strip draws.
+    expect((await get('/api/trends?days=4')).json().summary.goals_review_rate).toBe(67);
+  });
+
+  it('reads as zero rather than dividing by no days at all', async () => {
+    expect((await get('/api/trends?days=7')).json().summary.goals_review_rate).toBe(0);
   });
 
   it('averages sleep, pairing each morning with the previous evening', async () => {

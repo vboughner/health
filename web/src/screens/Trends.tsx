@@ -9,7 +9,8 @@ interface TrendDay {
   weight_lb: number | null;
   sleep_hours: number | null;
   window_compliant: boolean | null;
-  goals_reviewed: boolean;
+  // Null on days with nothing recorded at all — drawn as a blank cell, not a miss.
+  goals_reviewed: boolean | null;
 }
 
 interface Trends {

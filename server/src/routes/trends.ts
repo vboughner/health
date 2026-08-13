@@ -46,6 +46,13 @@ export function registerTrendRoutes(app: FastifyInstance, opts: AppOptions): voi
         const food = foodByDay.get(day);
         const entry = entries.get(day);
 
+        // A day with no record of any kind was never lived in the app — before the
+        // first log, or a stretch that went untouched. Reporting those as "not
+        // reviewed" paints them a failing red, which is a judgement about days that
+        // predate the question. A day with anything on it did happen, so an absent
+        // review there is a real miss and stays false.
+        const hasRecord = Boolean(food || burn.get(day) || entry);
+
         const window = food
           ? eatingWindow(
               [food.first_eaten_at!, food.last_eaten_at!],
@@ -71,7 +78,7 @@ export function registerTrendRoutes(app: FastifyInstance, opts: AppOptions): voi
           window_first: window?.first ?? null,
           window_last: window?.last ?? null,
           window_compliant: window?.compliant ?? null,
-          goals_reviewed: entry?.goals_reviewed ?? false,
+          goals_reviewed: hasRecord ? (entry?.goals_reviewed ?? false) : null,
         };
       });
 
@@ -81,6 +88,9 @@ export function registerTrendRoutes(app: FastifyInstance, opts: AppOptions): voi
 
       const loggedDays = rows.filter((r) => r.kcal !== null);
       const windowDays = rows.filter((r) => r.window_compliant !== null);
+      // Same denominator the strip draws cells for, so the percentage beside it
+      // counts the same days you can see.
+      const reviewKnownDays = rows.filter((r) => r.goals_reviewed !== null);
       const reviewedDays = rows.filter((r) => r.goals_reviewed);
 
       return {
@@ -104,7 +114,7 @@ export function registerTrendRoutes(app: FastifyInstance, opts: AppOptions): voi
             windowDays.length,
             windowDays.filter((r) => r.window_compliant).length,
           ),
-          goals_review_rate: complianceRate(rows.length, reviewedDays.length),
+          goals_review_rate: complianceRate(reviewKnownDays.length, reviewedDays.length),
           goals_review_streak: currentStreak(range, new Set(reviewedDays.map((r) => r.day))),
         },
       };
