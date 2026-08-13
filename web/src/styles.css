@@ -1208,6 +1208,11 @@ textarea:focus {
   font-variant-numeric: tabular-nums;
 }
 
+/* Keeps the line's height without showing it — display:none would collapse it. */
+.daynav-date-blank {
+  visibility: hidden;
+}
+
 .daynav-today {
   flex-shrink: 0;
   /* Matches .daynav-arrow so the whole row lines up. */

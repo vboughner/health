@@ -5,8 +5,9 @@ import { addDays, dayLabel } from '../dates';
  * native date picker for jumping further back.
  *
  * On today there is no forward arrow and no Today button at all — there is nothing
- * ahead to look at, and an always-present disabled control is just clutter. The
- * label is absolutely centred so it stays put whatever sits on either side of it.
+ * ahead to look at, and an always-present disabled control is just clutter. The bar
+ * still keeps a constant height either way, so stepping between days does not shove
+ * the rest of the page up and down.
  */
 export function DayNav({
   date,
@@ -31,7 +32,16 @@ export function DayNav({
 
       <label className="daynav-label">
         <span className={isToday ? '' : 'daynav-past'}>{dayLabel(date, today)}</span>
-        {!isToday && <span className="daynav-date">{date}</span>}
+        {/* Rendered even on today, just invisible: it reserves the second line so the
+            bar keeps one height and the page below does not jump when stepping days.
+            Holding the space with the real string beats a hard-coded height, which
+            would drift with font size or zoom. */}
+        <span
+          className={isToday ? 'daynav-date daynav-date-blank' : 'daynav-date'}
+          aria-hidden={isToday}
+        >
+          {date}
+        </span>
         {/* A real date input, so the phone shows its own picker. */}
         <input
           type="date"
