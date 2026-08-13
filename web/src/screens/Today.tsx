@@ -113,16 +113,26 @@ export function Today({
   const showingToday = shown === today;
 
   const { food, exercise, window: win, day } = summary;
-  const patchOn = (on: string, patch: Partial<DayEntry>) => act(() => api.put(`/day/${on}`, patch));
-  const patchDay = (patch: Partial<DayEntry>) => patchOn(date, patch);
+  const patchDay = (patch: Partial<DayEntry>) => act(() => api.put(`/day/${shown}`, patch));
 
-  /** File tonight's bedtime under the night it ends, and say where it went. */
-  async function stampBedtime(): Promise<string> {
+  /**
+   * File tonight's bedtime under the night it ends, and say where it went.
+   *
+   * That is usually tomorrow, which is not the day on screen — so this reloads only
+   * when the write touches what is displayed, and always reports the outcome, since
+   * otherwise the press would look like it did nothing.
+   */
+  async function stampBedtime() {
     const on = bedtimeBelongsTo(user.timezone);
-    await patchOn(on, { sleep_start: Date.now() });
-    return on === date
-      ? 'Bedtime saved.'
-      : `Bedtime saved for ${shortDayLabel(on, today)}'s night.`;
+    try {
+      await api.put(`/day/${on}`, { sleep_start: Date.now() });
+      setNotice(
+        on === shown ? 'Bedtime saved.' : `Bedtime saved for ${shortDayLabel(on, today)}'s night.`,
+      );
+      if (on === shown) setVersion((v) => v + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'That did not save');
+    }
   }
 
   return (
@@ -221,11 +231,12 @@ export function Today({
               key={`s-${shown}`}
               day={day}
               hours={day.sleep_hours}
-              isToday={date === today}
+              isToday={showingToday}
               onSave={(start, end) => patchDay({ sleep_start: start, sleep_end: end })}
               onStampWake={() => patchDay({ sleep_end: Date.now() })}
               onStampBed={stampBedtime}
             />
+            {notice && <div className="toast tiny">{notice}</div>}
           </div>
         </div>
       </div>

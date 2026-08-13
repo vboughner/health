@@ -7,10 +7,9 @@
  * note changes, this changes with it.
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { api } from '../api';
 import { shortDayLabel } from '../dates';
-import type { DayEntry } from '../types';
 
 interface Section {
   title: string;
@@ -62,46 +61,28 @@ const PLAN: Section[] = [
 export function Goals({
   date,
   today,
-  onReviewed,
+  onDone,
 }: {
   date: string;
   today: string;
-  onReviewed: () => void;
+  /** Records the review and returns to the day view. */
+  onDone: () => void;
 }) {
-  const [reviewed, setReviewed] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    let cancelled = false;
-
-    api
-      .get<{ day: DayEntry }>(`/day/${date}`)
-      .then((res) => {
-        if (!cancelled) setReviewed(res.day.goals_reviewed);
-      })
-      .catch((err) => {
-        if (!cancelled) console.error(err);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [date]);
-
-  async function confirm() {
+  // Nothing here branches on whether the day was already reviewed, so there is
+  // nothing to fetch — press it twice and the second write is a no-op.
+  async function done() {
     setBusy(true);
     try {
       await api.put(`/day/${date}`, { goals_reviewed: true });
-      setReviewed(true);
-      onReviewed();
+      onDone();
     } catch (err) {
-      console.error(err);
-    } finally {
+      setError(err instanceof Error ? err.message : 'Could not record that');
       setBusy(false);
     }
   }
-
-  const forDay = shortDayLabel(date, today);
 
   return (
     <div className="stack">
@@ -118,15 +99,17 @@ export function Goals({
         </div>
       ))}
 
-      {reviewed ? (
-        <div className="toast reviewed-note">
-          <span aria-hidden="true">✓</span> Reviewed {forDay}
+      {error && <div className="error">{error}</div>}
+
+      {date !== today && (
+        <div className="note tiny">
+          Marking <strong>{shortDayLabel(date, today)}</strong> as reviewed, not today.
         </div>
-      ) : (
-        <button className="btn btn-primary btn-block" onClick={confirm} disabled={busy}>
-          {busy ? <span className="spinner" /> : `I have reviewed these ${forDay}`}
-        </button>
       )}
+
+      <button className="btn btn-primary btn-block" onClick={done} disabled={busy}>
+        {busy ? <span className="spinner" /> : 'Done Reviewing'}
+      </button>
     </div>
   );
 }

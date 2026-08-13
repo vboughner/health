@@ -1290,9 +1290,11 @@ textarea:focus {
   padding-right: 10px;
 }
 
+/* Narrow on purpose: the labels are one short word, and the time input beside it
+   needs the width to show a full "10:33 PM" without clipping. */
 .sleep-btn {
-  flex: 0 0 132px;
-  padding: 0 10px;
+  flex: 0 0 74px;
+  padding: 0 8px;
   font-size: 14px;
 }
 
@@ -1313,12 +1315,6 @@ textarea:focus {
 
 .plan-list li::marker {
   color: var(--accent);
-}
-
-/* Applied with .toast, which supplies the accent-dim box. */
-.reviewed-note {
-  font-weight: 600;
-  text-align: center;
 }
 
 /* Used alongside .stack, which already supplies the column layout — this only

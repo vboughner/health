@@ -84,7 +84,16 @@ export function App() {
           <AddFood date={date} today={today} onChangeDate={setDate} onLogged={handleLogged} />
         )}
         {tab === 'trends' && <Trends refreshKey={refreshKey} />}
-        {tab === 'goals' && <Goals date={date} today={today} onReviewed={handleLogged} />}
+        {tab === 'goals' && (
+          <Goals
+            date={date}
+            today={today}
+            onDone={() => {
+              handleLogged();
+              setTab('today');
+            }}
+          />
+        )}
       </main>
 
       <nav className="tabbar">

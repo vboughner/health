@@ -87,7 +87,7 @@ export function SleepInput({
           />
           {isToday && (
             <button className="btn sleep-btn" onClick={onStampWake}>
-              Got Up
+              Up
             </button>
           )}
         </div>
@@ -104,7 +104,7 @@ export function SleepInput({
           />
           {isToday && (
             <button className="btn sleep-btn" onClick={onStampBed}>
-              Laying Down
+              Down
             </button>
           )}
         </div>
