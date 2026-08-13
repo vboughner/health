@@ -167,23 +167,24 @@ export function ExerciseInput({
   return (
     <div className="ex-form">
       <div className="ex-fields">
-        <select
-          value={activity}
-          onChange={(e) => setActivity(e.target.value)}
-          aria-label="Activity"
-        >
-          {activities.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.label}
-            </option>
-          ))}
-        </select>
+        <span className="select-wrap">
+          <select
+            value={activity}
+            onChange={(e) => setActivity(e.target.value)}
+            aria-label="Activity"
+          >
+            {activities.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.label}
+              </option>
+            ))}
+          </select>
+        </span>
         <label className="inline-input">
           <input
             type="number"
             inputMode="numeric"
             min="0"
-            placeholder="minutes"
             aria-label="Minutes"
             value={minutes}
             onChange={(e) => setMinutes(e.target.value)}

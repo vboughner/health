@@ -54,7 +54,7 @@ const PLAN: Section[] = [
       'Increase overall exercise to hit the 40%-of-calories target above.',
       'Keep up climbing twice a week.',
       'Keep up running three times a week.',
-      'Add one weights workout a week.',
+      'Add one weight workout a week.',
     ],
   },
 ];

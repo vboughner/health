@@ -935,6 +935,35 @@ textarea:focus {
   align-items: center;
 }
 
+/* Browsers pin the native select caret hard against the right edge and ignore
+   padding-right, so the arrow is drawn here instead — inset properly, and in a
+   colour that follows the theme. */
+.select-wrap {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.select-wrap select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 40px;
+}
+
+.select-wrap::after {
+  content: '';
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  margin-top: -6px;
+  border-right: 2px solid var(--text-dim);
+  border-bottom: 2px solid var(--text-dim);
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+
 .measured {
   color: var(--accent);
 }
