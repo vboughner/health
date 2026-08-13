@@ -107,8 +107,12 @@ export function Goals({
         </div>
       )}
 
-      <button className="btn btn-primary btn-block" onClick={done} disabled={busy}>
-        {busy ? <span className="spinner" /> : 'Done Reviewing'}
+      {/* The label stays put while saving. Elsewhere the spinner replaces the text,
+          but those buttons have a width set by their row; this one is sized by its
+          label, so swapping it out would shrink the button to a spinning circle. */}
+      <button className="btn btn-inline-end" onClick={done} disabled={busy}>
+        {busy && <span className="spinner" />}
+        Done Reviewing
       </button>
     </div>
   );

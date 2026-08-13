@@ -241,6 +241,14 @@ textarea:focus {
   width: 100%;
 }
 
+/* Sizes to its own label instead of stretching to the width of a .stack column,
+   which lays its children out with the default align-items: stretch, and parks it
+   at the trailing edge. The name says -end because the alignment is half the point:
+   a plain shrink-to-fit button would still sit on the left. */
+.btn-inline-end {
+  align-self: flex-end;
+}
+
 .btn-ghost {
   background: none;
   border: none;
