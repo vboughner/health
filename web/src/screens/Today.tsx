@@ -4,7 +4,6 @@ import type { User, DaySummary, DayEntry, Activity } from '../types';
 import { CalorieHeader } from '../components/CalorieHeader';
 import { MacroBar } from '../components/MacroBar';
 import { WindowBar } from '../components/WindowBar';
-import { CheckIn } from '../components/CheckIn';
 import { DayNav } from '../components/DayNav';
 import { WarningChip } from '../components/FoodRow';
 import { WeightInput, SleepInput, ExerciseInput, ExerciseList } from '../components/DayInputs';
@@ -128,6 +127,37 @@ export function Today({
       </div>
 
       <div className="card">
+        <div className="card-title">{date === today ? 'Eaten today' : 'Eaten'}</div>
+        {food.entries.length === 0 ? (
+          <div className="empty">Nothing logged.</div>
+        ) : (
+          <div className="list">
+            {food.entries.map((e) => (
+              <div key={e.id} className="entry">
+                <div className="entry-main">
+                  <div className="entry-name">
+                    {e.food_name}
+                    <WarningChip reasons={e.processed_flags} />
+                  </div>
+                  <div className="entry-detail">
+                    {formatTime(e.eaten_at, user.timezone)} · {formatAmount(e)}
+                  </div>
+                </div>
+                <div className="entry-kcal">{Math.round(e.kcal)}</div>
+                <button
+                  className="entry-del"
+                  onClick={() => act(() => api.del(`/log/food/${e.id}`))}
+                  aria-label={`Delete ${e.food_name}`}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="card">
         <div className="card-title">Exercise</div>
         <div className="stat-row">
           <Stat value={exercise.total} label="burned" />
@@ -170,42 +200,6 @@ export function Today({
             onSave={(start, end) => patchDay({ sleep_start: start, sleep_end: end })}
           />
         </div>
-      </div>
-
-      <div className="card">
-        <div className="card-title">Daily check-in</div>
-        <CheckIn day={day} window={win} onToggle={(field, value) => patchDay({ [field]: value })} />
-      </div>
-
-      <div className="card">
-        <div className="card-title">{date === today ? 'Eaten today' : 'Eaten'}</div>
-        {food.entries.length === 0 ? (
-          <div className="empty">Nothing logged.</div>
-        ) : (
-          <div className="list">
-            {food.entries.map((e) => (
-              <div key={e.id} className="entry">
-                <div className="entry-main">
-                  <div className="entry-name">
-                    {e.food_name}
-                    <WarningChip reasons={e.processed_flags} />
-                  </div>
-                  <div className="entry-detail">
-                    {formatTime(e.eaten_at, user.timezone)} · {formatAmount(e)}
-                  </div>
-                </div>
-                <div className="entry-kcal">{Math.round(e.kcal)}</div>
-                <button
-                  className="entry-del"
-                  onClick={() => act(() => api.del(`/log/food/${e.id}`))}
-                  aria-label={`Delete ${e.food_name}`}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );

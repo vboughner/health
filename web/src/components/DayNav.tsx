@@ -4,8 +4,9 @@ import { addDays, dayLabel, daysBetween } from '../dates';
  * Step between days. Arrows move one day; tapping the label opens the phone's
  * native date picker for jumping further back.
  *
- * Forward is capped at today — there is nothing to see or record in the future,
- * and a disabled arrow says that more plainly than an empty screen would.
+ * On today there is no forward arrow and no Today button at all — there is nothing
+ * ahead to look at, and an always-present disabled control is just clutter. The
+ * label is absolutely centred so it stays put whatever sits on either side of it.
  */
 export function DayNav({
   date,
@@ -42,23 +43,21 @@ export function DayNav({
         />
       </label>
 
-      <button
-        className="daynav-arrow"
-        onClick={() => onChange(addDays(date, 1))}
-        disabled={!canGoForward}
-        aria-label="Next day"
-      >
-        ›
-      </button>
-
-      <button
-        className="daynav-today"
-        onClick={() => onChange(today)}
-        disabled={isToday}
-        aria-label="Jump to today"
-      >
-        Today
-      </button>
+      {!isToday && (
+        <div className="daynav-right">
+          <button
+            className="daynav-arrow"
+            onClick={() => onChange(addDays(date, 1))}
+            disabled={!canGoForward}
+            aria-label="Next day"
+          >
+            ›
+          </button>
+          <button className="daynav-today" onClick={() => onChange(today)}>
+            Today
+          </button>
+        </div>
+      )}
     </div>
   );
 }

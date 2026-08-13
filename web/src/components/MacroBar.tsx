@@ -21,19 +21,21 @@ export function MacroBar({
         {empty ? (
           <div className="macro-seg macro-empty" style={{ width: '100%' }} />
         ) : (
+          // Carb, protein, fat — the 80/10/10 order the diet is aimed at, so the
+          // bar reads largest-to-smallest on a good day.
           <>
+            <div className="macro-seg macro-carb" style={{ width: `${split.carb}%` }} />
             <div className="macro-seg macro-protein" style={{ width: `${split.protein}%` }} />
             <div className="macro-seg macro-fat" style={{ width: `${split.fat}%` }} />
-            <div className="macro-seg macro-carb" style={{ width: `${split.carb}%` }} />
           </>
         )}
       </div>
 
       {!compact && (
         <div className="macro-legend">
+          <Legend color="carb" label="Carbs" pct={split.carb} />
           <Legend color="protein" label="Protein" pct={split.protein} />
           <Legend color="fat" label="Fat" pct={split.fat} />
-          <Legend color="carb" label="Carbs" pct={split.carb} />
         </div>
       )}
     </div>
@@ -53,5 +55,5 @@ function Legend({ color, label, pct }: { color: string; label: string; pct: numb
 }
 
 function macroLabel(split: { protein: number; fat: number; carb: number }): string {
-  return `Protein ${Math.round(split.protein)}%, fat ${Math.round(split.fat)}%, carbs ${Math.round(split.carb)}%`;
+  return `Carbs ${Math.round(split.carb)}%, protein ${Math.round(split.protein)}%, fat ${Math.round(split.fat)}%`;
 }

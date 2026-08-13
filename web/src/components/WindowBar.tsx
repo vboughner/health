@@ -14,6 +14,18 @@ export function WindowBar({ window: w }: { window: DaySummary['window'] }) {
   const targetStart = toMinutes(w.target_start);
   const targetEnd = toMinutes(w.target_end);
 
+  // The rule, stated plainly and always on screen — the whole point of the window
+  // is the hard stop at the end of it, and it should not take a violation to see it.
+  const rule = (
+    <div className="win-rule">
+      Finish eating by <strong>{clock(w.target_end)}</strong>
+      <span className="faint">
+        {' '}
+        · window {clock(w.target_start)}–{clock(w.target_end)}
+      </span>
+    </div>
+  );
+
   if (w.first === null || w.last === null) {
     return (
       <div className="win">
@@ -21,11 +33,9 @@ export function WindowBar({ window: w }: { window: DaySummary['window'] }) {
           <div className="win-target" style={barStyle(targetStart, targetEnd)} />
         </div>
         <div className="win-labels">
-          <span className="faint tiny">
-            Target {w.target_start}–{w.target_end}
-          </span>
           <span className="faint tiny">Nothing logged yet</span>
         </div>
+        {rule}
       </div>
     );
   }
@@ -58,14 +68,33 @@ export function WindowBar({ window: w }: { window: DaySummary['window'] }) {
         </span>
       </div>
 
-      {!w.compliant && (
-        <div className="tiny faint">
-          {!w.startedOnTime && `Started before ${w.target_start}. `}
-          {!w.endedOnTime && `Ate after ${w.target_end}.`}
+      {w.compliant ? (
+        <div className="win-verdict win-verdict-ok">
+          <span aria-hidden="true">✓</span> Ate inside the window
+        </div>
+      ) : (
+        <div className="win-verdict win-verdict-bad">
+          <span aria-hidden="true">✗</span>{' '}
+          {[
+            !w.startedOnTime && `started before ${clock(w.target_start)}`,
+            !w.endedOnTime && `ate after ${clock(w.target_end)}`,
+          ]
+            .filter(Boolean)
+            .join(', ')}
         </div>
       )}
+
+      {rule}
     </div>
   );
+}
+
+/** 24-hour HH:MM to a readable 12-hour clock: 19:00 becomes 7pm. */
+function clock(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map(Number);
+  const suffix = h < 12 ? 'am' : 'pm';
+  const hour = h % 12 === 0 ? 12 : h % 12;
+  return m === 0 ? `${hour}${suffix}` : `${hour}:${String(m).padStart(2, '0')}${suffix}`;
 }
 
 function barStyle(fromMin: number, toMin: number) {

@@ -15,11 +15,16 @@
   --warn-dim: #6b4e0e;
   --over: #f87171;
   --over-dim: #6e2c2c;
-  /* Categorical, validated for CVD against the dark surface #171b1f.
-     Fat is orange, not amber: amber is the reserved warning status color. */
-  --protein: #2f80ed;
-  --fat: #e8590c;
-  --carb: #7c5cf0;
+  /* Macros run carb / protein / fat as a traffic light, matching the 80/10/10
+     target the diet aims at: carbs are the bulk, fat is the one to watch.
+     Steps chosen with the CVD validator against the dark surface #171b1f —
+     protan separation 21.8, well clear of the 8 floor. The yellow sits above
+     the house lightness band on purpose: darkening it into the band collapses
+     green/yellow separation to ~6 for red-green colourblind readers, and being
+     able to tell them apart matters more than matching mark weight. */
+  --carb: #1f9d55;
+  --protein: #ffd24a;
+  --fat: #dc4a4a;
 
   --radius: 14px;
   --pad: 16px;
@@ -43,10 +48,12 @@
     --warn-dim: #fde68a;
     --over: #dc2626;
     --over-dim: #fecaca;
-    /* Categorical, validated for CVD against the light surface #ffffff. */
-    --protein: #2563eb;
-    --fat: #ea580c;
-    --carb: #7c3aed;
+    /* Same traffic light, re-stepped for the light surface #ffffff rather than
+       flipped. The fat red is deliberately a shade off the status "over budget"
+       red so the two never read as the same token. */
+    --carb: #15803d;
+    --protein: #ca8a04;
+    --fat: #c81e1e;
 
     color-scheme: light;
   }
@@ -841,84 +848,6 @@ textarea:focus {
   margin-top: 3px;
 }
 
-/* ---------- check-in ---------- */
-
-.checks {
-  display: flex;
-  flex-direction: column;
-}
-
-.check {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 9px 0;
-  cursor: pointer;
-}
-
-.check-readonly {
-  cursor: default;
-}
-
-/* The real checkbox stays in the DOM for keyboard and screen readers. */
-.check input {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.check-box {
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
-  border-radius: 7px;
-  border: 1.5px solid var(--border);
-  background: var(--surface-2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  line-height: 1;
-  color: var(--accent);
-  transition:
-    background 0.15s,
-    border-color 0.15s;
-}
-
-.check input:checked + .check-box {
-  background: var(--accent-dim);
-  border-color: var(--accent);
-}
-
-.check input:focus-visible + .check-box {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.check-label {
-  font-size: 15px;
-}
-
-.check-done {
-  color: var(--text-dim);
-}
-
-.check-auto-ok {
-  color: var(--accent);
-  border-style: dashed;
-}
-
-.check-auto-bad {
-  color: var(--warn);
-  border-style: dashed;
-}
-
-.check-unknown {
-  color: var(--text-faint);
-  border-style: dashed;
-}
-
 /* ---------- inline day inputs ---------- */
 
 .inline-field {
@@ -1199,22 +1128,37 @@ textarea:focus {
 /* ---------- day navigation ---------- */
 
 .daynav {
+  position: relative;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 6px;
+  min-height: 50px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 5px 6px;
 }
 
+.daynav-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .daynav-arrow {
   width: 40px;
   height: 40px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 10px;
   font-size: 22px;
   line-height: 1;
+  /* The ‹ › glyphs sit low inside their line box, so centring the box still
+     leaves them looking low. This nudges the ink onto the optical centre. */
+  padding-bottom: 5px;
   color: var(--text-dim);
   background: var(--surface-2);
 }
@@ -1229,11 +1173,15 @@ textarea:focus {
 }
 
 /* The label is a <label> wrapping a real date input, so tapping it opens the
-   phone's own picker. The input itself is invisible but still hit-testable. */
+   phone's own picker. The input itself is invisible but still hit-testable.
+
+   Absolutely centred on the bar rather than flexed between the controls, so it
+   reads dead-centre whether or not the forward arrow and Today button are there. */
 .daynav-label {
-  flex: 1;
-  min-width: 0;
-  position: relative;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 54%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1244,6 +1192,7 @@ textarea:focus {
   font-size: 15px;
   font-weight: 600;
   text-align: center;
+  white-space: nowrap;
 }
 
 .daynav-label input[type='date'] {
@@ -1270,18 +1219,16 @@ textarea:focus {
 
 .daynav-today {
   flex-shrink: 0;
-  padding: 9px 12px;
+  /* Matches .daynav-arrow so the whole row lines up. */
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
   border-radius: 10px;
   font-size: 13px;
   font-weight: 600;
   color: var(--accent);
   background: var(--surface-2);
-}
-
-.daynav-today:disabled {
-  opacity: 0;
-  /* Keeps the row from reflowing as you step on and off today. */
-  pointer-events: none;
 }
 
 /* ---------- time-of-eating row ---------- */
@@ -1295,4 +1242,24 @@ textarea:focus {
 .when-row input {
   flex: 0 1 150px;
   margin-left: auto;
+}
+
+.win-rule {
+  font-size: 12px;
+  color: var(--text-dim);
+  border-top: 1px solid var(--border);
+  padding-top: 9px;
+}
+
+.win-verdict {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.win-verdict-ok {
+  color: var(--accent);
+}
+
+.win-verdict-bad {
+  color: var(--warn);
 }

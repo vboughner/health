@@ -104,7 +104,7 @@ export function Trends({ refreshKey }: { refreshKey: number }) {
         />
         <Tile value={s.avg_kcal ?? '—'} unit="cal" label="Avg eaten" />
         <Tile value={`${s.window_compliance}`} unit="%" label="In window" />
-        <Tile value={s.checkin_streak} unit="days" label="Check-in streak" />
+        <Tile value={s.avg_sleep_hours ?? '—'} unit="h" label="Avg sleep" />
       </div>
 
       <div className="card">
