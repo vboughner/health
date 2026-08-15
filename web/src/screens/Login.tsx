@@ -52,7 +52,7 @@ export function Login({ onLoggedIn }: { onLoggedIn: (user: User) => void }) {
         />
 
         <button className="btn btn-primary btn-block" type="submit" disabled={busy}>
-          {busy ? <span className="spinner" /> : 'Log in'}
+          {busy ? <span className="spinner" /> : 'Log In'}
         </button>
       </form>
     </div>

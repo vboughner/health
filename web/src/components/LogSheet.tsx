@@ -144,7 +144,7 @@ export function LogSheet({
             Cancel
           </button>
           <button className="btn btn-primary" onClick={log} disabled={!p || busy}>
-            {busy ? <span className="spinner" /> : 'Log it'}
+            {busy ? <span className="spinner" /> : 'Log It'}
           </button>
         </div>
       </div>

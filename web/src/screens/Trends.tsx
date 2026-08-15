@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api';
+import { nothingTracked, type Settings } from '../settings';
 import { WeightChart, CalorieChart, ComplianceStrip } from '../components/charts';
+import { NothingTracked } from '../components/NothingTracked';
 
 interface TrendDay {
   day: string;
@@ -38,7 +40,16 @@ interface Trends {
 
 const RANGES = [14, 30, 90];
 
-export function Trends({ refreshKey }: { refreshKey: number }) {
+export function Trends({
+  refreshKey,
+  settings,
+  onOpenSettings,
+}: {
+  refreshKey: number;
+  /** Trends shows the history of whatever the day screen is tracking, and no more. */
+  settings: Settings;
+  onOpenSettings: () => void;
+}) {
   const [days, setDays] = useState(30);
   const [data, setData] = useState<Trends | null>(null);
   const [error, setError] = useState('');
@@ -92,91 +103,125 @@ export function Trends({ refreshKey }: { refreshKey: number }) {
         </div>
       </div>
 
-      <div className="tiles">
-        <Tile
-          value={s.weight_trend_per_week === null ? '—' : formatSigned(s.weight_trend_per_week)}
-          unit="lb/wk"
-          label="Weight trend"
-          tone={
-            s.weight_trend_per_week === null
-              ? undefined
-              : s.weight_trend_per_week <= target
-                ? 'good'
-                : s.weight_trend_per_week < 0
+      {nothingTracked(settings) && (
+        <NothingTracked what="to chart yet" onOpenSettings={onOpenSettings} />
+      )}
+
+      {/* Every panel below belongs to one of the toggles, and goes with it. The
+          history is never deleted, so switching a feature back on brings its whole
+          chart back rather than starting the record over. */}
+      {(settings.weight || settings.food || settings.goals) && (
+        <div className="tiles">
+          {settings.weight && (
+            <Tile
+              value={s.weight_trend_per_week === null ? '—' : formatSigned(s.weight_trend_per_week)}
+              unit="lb/wk"
+              label="Weight trend"
+              tone={
+                s.weight_trend_per_week === null
                   ? undefined
-                  : 'warn'
-          }
-        />
-        <Tile value={s.avg_kcal ?? '—'} unit="cal" label="Avg eaten" />
-        <Tile value={`${s.window_compliance}`} unit="%" label="In window" />
-        <Tile value={s.goals_review_streak} unit="days" label="Goal review streak" />
-      </div>
-
-      <div className="card">
-        <div className="card-title">
-          Weight
-          {s.latest_weight !== null && <span className="faint"> · now {s.latest_weight} lb</span>}
+                  : s.weight_trend_per_week <= target
+                    ? 'good'
+                    : s.weight_trend_per_week < 0
+                      ? undefined
+                      : 'warn'
+              }
+            />
+          )}
+          {settings.food && <Tile value={s.avg_kcal ?? '—'} unit="cal" label="Avg eaten" />}
+          {settings.food && <Tile value={`${s.window_compliance}`} unit="%" label="In window" />}
+          {settings.goals && (
+            <Tile value={s.goals_review_streak} unit="days" label="Goal review streak" />
+          )}
         </div>
-        <WeightChart
-          points={data.days.map((d) => ({ day: d.day, value: d.weight_lb }))}
-          smoothed={s.weight_smoothed}
-        />
-        {s.weight_trend_per_week !== null && (
-          <div className="tiny faint">
-            {formatSigned(s.weight_trend_per_week)} lb/week against a −0.5 goal. The line is a 7-day
-            average — daily readings bounce more than the real change.
+      )}
+
+      {settings.weight && (
+        <div className="card">
+          <div className="card-title">
+            Weight
+            {s.latest_weight !== null && <span className="faint"> · now {s.latest_weight} lb</span>}
           </div>
-        )}
-      </div>
-
-      <div className="card">
-        <div className="card-title">
-          Calories <span className="faint">· budget {data.budget}</span>
+          <WeightChart
+            points={data.days.map((d) => ({ day: d.day, value: d.weight_lb }))}
+            smoothed={s.weight_smoothed}
+          />
+          {s.weight_trend_per_week !== null && (
+            <div className="tiny faint">
+              {formatSigned(s.weight_trend_per_week)} lb/week against a −0.5 goal. The line is a
+              7-day average — daily readings bounce more than the real change.
+            </div>
+          )}
         </div>
-        <CalorieChart
-          points={data.days.map((d) => ({ day: d.day, value: d.kcal }))}
-          budget={data.budget}
-        />
-        <div className="tiny faint">
-          {s.days_under_budget} of {s.days_logged} logged days at or under budget.
+      )}
+
+      {settings.food && (
+        <div className="card">
+          <div className="card-title">
+            Calories <span className="faint">· budget {data.budget}</span>
+          </div>
+          <CalorieChart
+            points={data.days.map((d) => ({ day: d.day, value: d.kcal }))}
+            budget={data.budget}
+          />
+          <div className="tiny faint">
+            {s.days_under_budget} of {s.days_logged} logged days at or under budget.
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="card">
-        <div className="card-title">Eating window</div>
-        <ComplianceStrip days={data.days.map((d) => ({ day: d.day, ok: d.window_compliant }))} />
-      </div>
+      {settings.food && (
+        <div className="card">
+          <div className="card-title">Eating window</div>
+          <ComplianceStrip days={data.days.map((d) => ({ day: d.day, ok: d.window_compliant }))} />
+        </div>
+      )}
 
-      <div className="card">
-        <div className="card-title">
-          Goals reviewed
-          {/* Named rather than left as "of days", because the denominator is only
+      {settings.goals && (
+        <div className="card">
+          <div className="card-title">
+            Goals reviewed
+            {/* Named rather than left as "of days", because the denominator is only
               the days with something on them — and at the start that is one day,
               where a bare "100%" claims far more than it knows. Dropped entirely
               when there are none, rather than reading "0% of 0 days". */}
-          {s.goals_review_days > 0 && (
-            <span className="faint">
-              {' '}
-              · {s.goals_review_rate}% of {s.goals_review_days}{' '}
-              {s.goals_review_days === 1 ? 'day' : 'days'}
-            </span>
-          )}
+            {s.goals_review_days > 0 && (
+              <span className="faint">
+                {' '}
+                · {s.goals_review_rate}% of {s.goals_review_days}{' '}
+                {s.goals_review_days === 1 ? 'day' : 'days'}
+              </span>
+            )}
+          </div>
+          <ComplianceStrip
+            days={data.days.map((d) => ({ day: d.day, ok: d.goals_reviewed }))}
+            labels={{ ok: 'Reviewed', bad: 'Not reviewed' }}
+          />
         </div>
-        <ComplianceStrip
-          days={data.days.map((d) => ({ day: d.day, ok: d.goals_reviewed }))}
-          labels={{ ok: 'Reviewed', bad: 'Not reviewed' }}
-        />
-      </div>
+      )}
 
-      <div className="card">
-        <div className="card-title">Averages</div>
-        <div className="stack">
-          <Line label="Calories eaten" value={s.avg_kcal} unit="cal" />
-          <Line label="Calories burned" value={s.avg_burned} unit="cal" target={data.burn_target} />
-          <Line label="Sleep" value={s.avg_sleep_hours} unit="h" />
-          <Line label="Days logged" value={s.days_logged} unit={`of ${data.days.length}`} />
+      {/* Days logged sits with the calories: it counts the days with food on them,
+          so it means nothing without them. */}
+      {(settings.food || settings.exercise || settings.sleep) && (
+        <div className="card">
+          <div className="card-title">Averages</div>
+          <div className="stack">
+            {settings.food && <Line label="Calories eaten" value={s.avg_kcal} unit="cal" />}
+            {settings.exercise && (
+              <Line
+                label="Calories burned"
+                value={s.avg_burned}
+                unit="cal"
+                target={data.burn_target}
+              />
+            )}
+            {settings.sleep && <Line label="Sleep" value={s.avg_sleep_hours} unit="h" />}
+            {settings.food && (
+              <Line label="Days logged" value={s.days_logged} unit={`of ${data.days.length}`} />
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

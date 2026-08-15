@@ -127,10 +127,13 @@ textarea:focus {
   margin: 0 auto;
 }
 
+/* The tab bar is fixed and about 61px tall, so the bottom padding is that plus the
+   space the last section gets to breathe in. At 76px only a hairline of it was
+   clear of the bar, and every page ended hard against it. */
 .app-main {
   flex: 1;
   padding: var(--pad);
-  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+  padding-bottom: calc(100px + env(safe-area-inset-bottom));
 }
 
 .tabbar {
@@ -176,12 +179,14 @@ textarea:focus {
 
 /* ---------- cards ---------- */
 
+/* No bottom margin: every card in the app is a direct child of a .stack, and the
+   stack's gap is what spaces them. Carrying a margin as well made the space between
+   two cards twice the space above the first one. */
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: var(--pad);
-  margin-bottom: 12px;
 }
 
 .card-title {
@@ -193,11 +198,79 @@ textarea:focus {
   margin-bottom: 12px;
 }
 
+/* For a heading sitting directly on top of a list that carries its own row
+   spacing, where the full gap reads as a hole. */
+.card-title-tight {
+  margin-bottom: 6px;
+}
+
+/* The heading of a collapsible card. Full width and the height of a heading plus
+   its own margin, so the tap target is the whole line rather than the few
+   characters of the word — the title is 12px and nobody aims at that. */
+.card-toggle {
+  display: flex;
+  /* Centred rather than on a shared baseline: the chevron is a good deal bigger
+     than the 12px heading beside it, and a baseline would hang it low. */
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  margin-bottom: 12px;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+/* Collapsed, the heading is the whole card, so it keeps no gap under it. */
+.card-toggle-closed {
+  margin-bottom: 0;
+}
+
+/* The title carries the card's own bottom margin; inside a toggle the button
+   owns the spacing instead. */
+.card-title-flush {
+  margin-bottom: 0;
+}
+
+/* Separates two things sharing one card, where the heading names both. */
+.card-split {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+/* Pushed to the trailing edge, ahead of the chevron. */
+.card-summary {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.card-chevron {
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text-dim);
+}
+
+/* With no summary between them the chevron would sit against the title. */
+.card-title-flush + .card-chevron {
+  margin-left: auto;
+}
+
 .row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+/* A row holding one thing, parked at the trailing edge — space-between would
+   otherwise leave a lone child on the left. */
+.row-end {
+  justify-content: flex-end;
 }
 
 .stack {
@@ -247,6 +320,14 @@ textarea:focus {
    a plain shrink-to-fit button would still sit on the left. */
 .btn-inline-end {
   align-self: flex-end;
+}
+
+/* The tick on "Review goals" — it reports a state rather than labelling the
+   action, so it takes the accent rather than the button's own text colour.
+   .btn already sets the gap that separates it from the label. */
+.btn-check {
+  color: var(--accent);
+  font-weight: 700;
 }
 
 .btn-ghost {
@@ -1216,9 +1297,24 @@ textarea:focus {
   font-variant-numeric: tabular-nums;
 }
 
-/* Keeps the line's height without showing it — display:none would collapse it. */
-.daynav-date-blank {
+/* Keeps a line's height without showing it — display:none would collapse it. */
+.daynav-ghost {
   visibility: hidden;
+}
+
+/* Today's label, laid over both ghost lines so it reads on the bar's centre rather
+   than on the upper of the two. Green because today is the day you can still do
+   something about. (.daynav-today below is the button back to it, from a past day.)
+
+   It comes before the date input in the DOM, so the input still paints on top and
+   keeps the whole label tappable. */
+.daynav-now {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
 }
 
 .daynav-today {
@@ -1255,16 +1351,138 @@ textarea:focus {
   padding-top: 9px;
 }
 
+/* Three steps, not two. Amber is the window shifted off its hours; red is the
+   window stretched longer than it is allowed to be, which is the miss that
+   actually undoes the rule. See windowVerdict() for where the line falls. */
 .win-rule-ok {
   color: var(--accent);
 }
 
-.win-rule-bad {
+.win-rule-warn {
   color: var(--warn);
+}
+
+.win-rule-over {
+  color: var(--over);
 }
 
 .win-rule-reason {
   font-weight: 400;
+}
+
+/* Body copy inside a card — the one place this app has prose rather than figures. */
+.empty-note {
+  margin: 0 0 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+/* ---------- settings toggles ---------- */
+
+.toggles {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The whole row is the target — label, description and switch together — so it
+   can be hit without aiming at a 44px control on a phone. */
+.toggle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 0;
+  cursor: pointer;
+}
+
+.toggle + .toggle {
+  border-top: 1px solid var(--border);
+}
+
+/* The heading already leaves a gap of its own; the first row's own padding on top
+   of it opened up more space than the rest of the list uses between rows. */
+.toggle:first-child {
+  padding-top: 0;
+}
+
+.toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.toggle-label {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.toggle-detail {
+  font-size: 12px;
+  color: var(--text-faint);
+  line-height: 1.35;
+}
+
+/* The real checkbox, kept in the accessibility tree and reachable by keyboard, but
+   drawn as the track and knob beside it. Not display:none, which would take it out
+   of the tree entirely. */
+.toggle-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-track {
+  flex: 0 0 auto;
+  margin-left: auto;
+  width: 46px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  transition: background 0.15s ease;
+}
+
+.toggle-knob {
+  display: block;
+  width: 22px;
+  height: 22px;
+  margin: 2px;
+  border-radius: 999px;
+  background: var(--text-faint);
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease;
+}
+
+.toggle-input:checked ~ .toggle-track {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+.toggle-input:checked ~ .toggle-track .toggle-knob {
+  background: var(--accent);
+  transform: translateX(18px);
+}
+
+/* Keyboard focus has to be visible on the drawn switch, since the input it
+   belongs to is invisible. */
+.toggle-input:focus-visible ~ .toggle-track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.toggle-note {
+  margin-top: 12px;
+  line-height: 1.45;
+}
+
+/* Separated from the card above it. The space below comes from the page padding,
+   the same as every other page's last section. */
+.settings-logout {
+  margin-top: 10px;
 }
 
 /* ---------- sleep ---------- */

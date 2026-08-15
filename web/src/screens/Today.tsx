@@ -2,12 +2,21 @@ import { useState, useEffect } from 'react';
 import { api } from '../api';
 import { bedtimeBelongsTo, shortDayLabel } from '../dates';
 import type { User, DaySummary, DayEntry, Activity } from '../types';
+import { nothingTracked, type Settings as SettingsValue } from '../settings';
 import { CalorieHeader } from '../components/CalorieHeader';
 import { MacroBar } from '../components/MacroBar';
 import { WindowBar } from '../components/WindowBar';
 import { DayNav } from '../components/DayNav';
+import { CollapsibleCard } from '../components/CollapsibleCard';
+import { NothingTracked } from '../components/NothingTracked';
 import { WarningChip } from '../components/FoodRow';
-import { WeightInput, SleepInput, ExerciseInput, ExerciseList } from '../components/DayInputs';
+import {
+  WeightInput,
+  WakeInput,
+  BedInput,
+  ExerciseInput,
+  ExerciseList,
+} from '../components/DayInputs';
 
 export function Today({
   user,
@@ -15,14 +24,20 @@ export function Today({
   today,
   onChangeDate,
   refreshKey,
-  onLogout,
+  settings,
+  onReviewGoals,
+  onOpenSettings,
 }: {
   user: User;
   date: string;
   today: string;
   onChangeDate: (day: string) => void;
   refreshKey: number;
-  onLogout: () => void;
+  /** Which sections this phone shows. Everything stays recorded either way. */
+  settings: SettingsValue;
+  /** Opens the plan. The Goals screen is what records the review. */
+  onReviewGoals: () => void;
+  onOpenSettings: () => void;
 }) {
   const [summary, setSummary] = useState<DaySummary | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -135,112 +150,188 @@ export function Today({
     }
   }
 
+  // The page runs in the order the day does: what you weigh and when you got up,
+  // what you burned, what you ate, how that ate broke down, then bedtime. The
+  // calorie header stays on top of all of it — it is the one number worth seeing
+  // before scrolling anywhere.
   return (
     <div className="stack">
-      <div className="row">
-        <h1 className="screen-title">{showingToday ? 'Today' : 'Day'}</h1>
-        <button className="btn-ghost tiny" onClick={onLogout}>
-          Log out
-        </button>
-      </div>
-
       {nav}
 
       {error && <div className="error">{error}</div>}
 
       <div className={stale ? 'stack day-body day-body-stale' : 'stack day-body'} aria-busy={stale}>
-        <div className="card">
-          <CalorieHeader eaten={food.totals.kcal} budget={food.budget} isToday={showingToday} />
-        </div>
+        {nothingTracked(settings) && (
+          <NothingTracked what="to show for this day" onOpenSettings={onOpenSettings} />
+        )}
 
-        <div className="card">
-          <div className="card-title">Macros</div>
-          <MacroBar
-            protein_g={food.totals.protein_g}
-            fat_g={food.totals.fat_g}
-            carb_g={food.totals.carb_g}
-          />
-        </div>
+        {/* Everything food-derived travels together. The calorie header, the macro
+            split and the eating window are all read off the food log, so with food
+            switched off they would sit at zero rather than say anything — the
+            section that is gone is the one that fed them. */}
+        {settings.food && (
+          <div className="card">
+            <CalorieHeader eaten={food.totals.kcal} budget={food.budget} isToday={showingToday} />
+          </div>
+        )}
 
-        <div className="card">
-          <div className="card-title">Eating window</div>
-          <WindowBar window={win} />
-        </div>
-
-        <div className="card">
-          <div className="card-title">{showingToday ? 'Eaten today' : 'Eaten'}</div>
-          {food.entries.length === 0 ? (
-            <div className="empty">Nothing logged.</div>
-          ) : (
-            <div className="list">
-              {food.entries.map((e) => (
-                <div key={e.id} className="entry">
-                  <div className="entry-main">
-                    <div className="entry-name">
-                      {e.food_name}
-                      <WarningChip reasons={e.processed_flags} />
-                    </div>
-                    <div className="entry-detail">
-                      {formatTime(e.eaten_at, user.timezone)} · {formatAmount(e)}
-                    </div>
-                  </div>
-                  <div className="entry-kcal">{Math.round(e.kcal)}</div>
-                  <button
-                    className="entry-del"
-                    onClick={() => act(() => api.del(`/log/food/${e.id}`))}
-                    aria-label={`Delete ${e.food_name}`}
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
+        {/* Morning holds two independent things, so it survives on either one alone —
+            a weight is a morning thing whether or not the night before is tracked,
+            and vice versa. Only with both off does the heading go too, rather than
+            standing over nothing. */}
+        {(settings.weight || settings.sleep) && (
+          <div className="card">
+            <div className="card-title">Morning</div>
+            <div className="stack">
+              {settings.weight && (
+                <WeightInput
+                  key={`w-${shown}`}
+                  weight={day.weight_lb}
+                  onSave={(lb) => patchDay({ weight_lb: lb })}
+                />
+              )}
+              {settings.sleep && (
+                <WakeInput
+                  // Keyed on the value too, so a stamp that comes back from the server
+                  // replaces what the input is holding instead of being ignored.
+                  key={`s-${shown}-${day.sleep_end}`}
+                  day={day}
+                  hours={day.sleep_hours}
+                  isToday={showingToday}
+                  onSetTime={(field, at) => patchDay({ [field]: at })}
+                  onStampWake={() => patchDay({ sleep_end: Date.now() })}
+                />
+              )}
             </div>
-          )}
-        </div>
-
-        <div className="card">
-          <div className="card-title">Exercise</div>
-          <div className="stat-row">
-            <Stat value={exercise.total} label="burned" />
-            <Stat value={exercise.target} label="target" dim />
           </div>
+        )}
 
-          <ExerciseList
-            entries={exercise.entries}
-            activities={activities}
-            onDelete={(id) => act(() => api.del(`/log/exercise/${id}`))}
-          />
+        {/* The two long, scrolling sections fold away. Each keeps its headline
+            figure in the heading while closed, so collapsing one costs the detail
+            rather than the whole answer. */}
+        {settings.exercise && (
+          <CollapsibleCard
+            id="exercise"
+            title="Exercise"
+            summary={`${Math.round(exercise.total)} of ${Math.round(exercise.target)} cal`}
+          >
+            <div className="stat-row">
+              <Stat value={exercise.total} label="burned" />
+              <Stat value={exercise.target} label="target" dim />
+            </div>
 
-          <ExerciseInput
-            activities={activities}
-            onAdd={(activity, minutes) =>
-              act(() => api.post('/log/exercise', { activity, minutes, date: shown }))
+            <ExerciseList
+              entries={exercise.entries}
+              activities={activities}
+              onDelete={(id) => act(() => api.del(`/log/exercise/${id}`))}
+            />
+
+            <ExerciseInput
+              activities={activities}
+              onAdd={(activity, minutes) =>
+                act(() => api.post('/log/exercise', { activity, minutes, date: shown }))
+              }
+            />
+          </CollapsibleCard>
+        )}
+
+        {settings.food && (
+          <CollapsibleCard
+            id="eaten"
+            title={showingToday ? 'Eaten today' : 'Eaten'}
+            summary={food.entries.length === 1 ? '1 item' : `${food.entries.length} items`}
+          >
+            {food.entries.length === 0 ? (
+              <div className="empty">Nothing logged.</div>
+            ) : (
+              <div className="list">
+                {food.entries.map((e) => (
+                  <div key={e.id} className="entry">
+                    <div className="entry-main">
+                      <div className="entry-name">
+                        {e.food_name}
+                        <WarningChip reasons={e.processed_flags} />
+                      </div>
+                      <div className="entry-detail">
+                        {formatTime(e.eaten_at, user.timezone)} · {formatAmount(e)}
+                      </div>
+                    </div>
+                    <div className="entry-kcal">{Math.round(e.kcal)}</div>
+                    <button
+                      className="entry-del"
+                      onClick={() => act(() => api.del(`/log/food/${e.id}`))}
+                      aria-label={`Delete ${e.food_name}`}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CollapsibleCard>
+        )}
+
+        {/* Both halves are read off the same food log and are both about how the
+            eating went rather than what it was, so they share a heading and fold
+            away together. Collapsed, the heading keeps the window's two ends: the
+            macros need three numbers to say anything, the window needs two. */}
+        {settings.food && (
+          <CollapsibleCard
+            id="macros-window"
+            title="Eating macros and window"
+            summary={
+              win.first !== null && win.last !== null ? `${win.first}–${win.last}` : undefined
             }
-          />
-        </div>
+          >
+            <MacroBar
+              protein_g={food.totals.protein_g}
+              fat_g={food.totals.fat_g}
+              carb_g={food.totals.carb_g}
+            />
+            <div className="card-split">
+              <WindowBar window={win} />
+            </div>
+          </CollapsibleCard>
+        )}
 
-        <div className="card">
-          <div className="card-title">Body</div>
-          <div className="stack">
-            <WeightInput
-              key={`w-${shown}`}
-              weight={day.weight_lb}
-              onSave={(lb) => patchDay({ weight_lb: lb })}
-            />
-            <SleepInput
-              // Keyed on the values too, so a stamp that comes back from the server
-              // replaces what the inputs are holding instead of being ignored.
-              key={`s-${shown}-${day.sleep_start}-${day.sleep_end}`}
-              day={day}
-              hours={day.sleep_hours}
-              isToday={showingToday}
-              onSetTime={(field, at) => patchDay({ [field]: at })}
-              onStampWake={() => patchDay({ sleep_end: Date.now() })}
-              onStampBed={stampBedtime}
-            />
-            {notice && <div className="toast tiny">{notice}</div>}
+        {/* Like Morning, Bedtime holds two unrelated things and survives on either
+            one. With both off there is no evening left to show. */}
+        {(settings.sleep || settings.goals) && (
+          <div className="card">
+            <div className="card-title">Bedtime</div>
+            <div className="stack">
+              {settings.sleep && (
+                <BedInput
+                  key={`b-${shown}-${day.sleep_start}`}
+                  day={day}
+                  isToday={showingToday}
+                  onSetTime={(field, at) => patchDay({ [field]: at })}
+                  onStampBed={stampBedtime}
+                />
+              )}
+              {/* Reading the plan is the last thing in the day, so the way in sits at
+                  the end of it. The tick reports what the day already says rather than
+                  doing anything: it is the Goals screen that records the review. */}
+              {settings.goals && (
+                <button
+                  className="btn btn-inline-end"
+                  onClick={onReviewGoals}
+                  aria-label={
+                    day.goals_reviewed ? 'Review goals, already reviewed' : 'Review goals'
+                  }
+                >
+                  {day.goals_reviewed && (
+                    <span className="btn-check" aria-hidden="true">
+                      ✓
+                    </span>
+                  )}
+                  Review Goals
+                </button>
+              )}
+              {notice && <div className="toast tiny">{notice}</div>}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

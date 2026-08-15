@@ -7,14 +7,19 @@ import { Today } from './screens/Today';
 import { AddFood } from './screens/AddFood';
 import { Trends } from './screens/Trends';
 import { Goals } from './screens/Goals';
+import { Settings } from './screens/Settings';
+import { readSettings, writeSettings, type Settings as SettingsValue } from './settings';
 
-type Tab = 'today' | 'add' | 'trends' | 'goals';
+type Tab = 'today' | 'add' | 'trends' | 'settings' | 'goals';
 
+// Add food sits in the middle, where a thumb reaches without stretching — it is
+// pressed more often than the other four together.
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'today', label: 'Day', icon: '◎' },
-  { id: 'add', label: 'Add food', icon: '＋' },
-  { id: 'trends', label: 'Trends', icon: '▨' },
   { id: 'goals', label: 'Goals', icon: '⌖' },
+  { id: 'add', label: 'Add Food', icon: '＋' },
+  { id: 'trends', label: 'Trends', icon: '▨' },
+  { id: 'settings', label: 'Settings', icon: '⚙' },
 ];
 
 export function App() {
@@ -26,6 +31,14 @@ export function App() {
   // The day being viewed and logged to. Shared across tabs so that picking a past
   // day and then adding food puts the food on that day, not on today.
   const [date, setDate] = useState<string | null>(null);
+  // Read once at startup rather than on every render — nothing else on the device
+  // writes it, so the copy in state is the authority for the session.
+  const [settings, setSettings] = useState<SettingsValue>(readSettings);
+
+  const changeSettings = useCallback((next: SettingsValue) => {
+    setSettings(next);
+    writeSettings(next);
+  }, []);
 
   useEffect(() => {
     api
@@ -77,21 +90,33 @@ export function App() {
             today={today}
             onChangeDate={setDate}
             refreshKey={refreshKey}
-            onLogout={logout}
+            settings={settings}
+            onReviewGoals={() => setTab('goals')}
+            onOpenSettings={() => setTab('settings')}
           />
         )}
         {tab === 'add' && (
           <AddFood date={date} today={today} onChangeDate={setDate} onLogged={handleLogged} />
         )}
-        {tab === 'trends' && <Trends refreshKey={refreshKey} />}
+        {tab === 'trends' && (
+          <Trends
+            refreshKey={refreshKey}
+            settings={settings}
+            onOpenSettings={() => setTab('settings')}
+          />
+        )}
+        {tab === 'settings' && (
+          <Settings settings={settings} onChange={changeSettings} onLogout={logout} />
+        )}
         {tab === 'goals' && (
           <Goals
             date={date}
             today={today}
-            onDone={() => {
-              handleLogged();
-              setTab('today');
-            }}
+            trackReview={settings.goals}
+            // Stays on the plan rather than bouncing back to the day — you came here
+            // to read it, and the review is recorded by the reading. The bump is so
+            // the day screen shows its tick when you go back yourself.
+            onReviewed={handleLogged}
           />
         )}
       </main>

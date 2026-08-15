@@ -53,9 +53,16 @@ Two packages, mirroring the `server/` + `client/` split in the griljor repo.
 - **`web/`** — Vite + React + TypeScript, ESM. Built to `web/dist/`, served by nginx in
   production. The dev server proxies `/api` to :4300 so cookies behave identically in
   dev and prod.
-  - Four tabs: `Today` (the day), `AddFood`, `Trends`, `Goals`. Plus `Login`.
+  - Five tabs: `Today` (the day), `Goals`, `AddFood`, `Trends`, `Settings`. Plus
+    `Login`.
   - `src/dates.ts` — client-side day arithmetic. Mirrors parts of the server's
     `domain/day.ts` on purpose: the two packages must not import each other.
+  - `src/settings.ts` — which features this device tracks (diet, exercise, sleep,
+    weight, goals). **Per-device, in `localStorage`** — the server knows nothing about
+    it, and nothing is deleted or stops being recorded when a feature goes off. It
+    only decides what `Today` and `Trends` draw, so turning one back on brings its
+    whole history with it. `nothingTracked()` asks `FEATURES` rather than a list of
+    its own, so a toggle added later is counted without anyone remembering to.
   - `src/components/charts.tsx` — hand-rolled inline SVG, no chart library. Bars are
     zero-based on purpose; a truncated baseline makes a 1200-calorie day look like a
     fraction of a 2000-calorie one.

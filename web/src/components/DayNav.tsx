@@ -31,13 +31,18 @@ export function DayNav({
       </button>
 
       <label className="daynav-label">
-        <span className={isToday ? '' : 'daynav-past'}>{dayLabel(date, today)}</span>
-        {/* Rendered even on today, just invisible: it reserves the second line so the
-            bar keeps one height and the page below does not jump when stepping days.
-            Holding the space with the real string beats a hard-coded height, which
-            would drift with font size or zoom. */}
+        {/* On today the label reads across the middle of the bar rather than sitting
+            on the first of two lines, so it is laid over the top of both. The pair
+            below stays in flow, invisible, holding exactly the height they hold on
+            every other day — measured from the real strings rather than a hard-coded
+            number, which would drift with font size or zoom — so the page underneath
+            does not jump when stepping between days. */}
+        {isToday && <span className="daynav-now">{dayLabel(date, today)}</span>}
+        <span className={isToday ? 'daynav-ghost' : 'daynav-past'} aria-hidden={isToday}>
+          {dayLabel(date, today)}
+        </span>
         <span
-          className={isToday ? 'daynav-date daynav-date-blank' : 'daynav-date'}
+          className={isToday ? 'daynav-date daynav-ghost' : 'daynav-date'}
           aria-hidden={isToday}
         >
           {date}

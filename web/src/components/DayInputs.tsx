@@ -36,42 +36,39 @@ export function WeightInput({
 }
 
 /**
- * Sleep times, each filed under the calendar day it happened on: the bedtime you
- * started that evening, the wake time you got up that morning. They are not the two
- * ends of one night — the hours line pairs this morning's wake with *yesterday's*
- * bedtime — which is why the two fields save independently.
+ * The two sleep times are filed under the calendar day each one happened on: the
+ * bedtime you started that evening, the wake time you got up that morning. They are
+ * not the two ends of one night — the hours line pairs this morning's wake with
+ * *yesterday's* bedtime — which is why they save independently, and why they can sit
+ * in two different sections of the screen without anything having to be threaded
+ * between them.
  *
- * The buttons stamp the current time so nothing has to be typed at 6am, and pressing
- * one again just overwrites: useful when you press "Down" and then don't actually
+ * Each button stamps the current time so nothing has to be typed at 6am, and pressing
+ * it again just overwrites: useful when you press "Down" and then don't actually
  * settle for another half hour.
  */
-export function SleepInput({
+export function WakeInput({
   day,
   hours,
   isToday,
   onSetTime,
   onStampWake,
-  onStampBed,
 }: {
   day: DayEntry;
   hours: number | null;
   isToday: boolean;
-  onSetTime: (field: 'sleep_start' | 'sleep_end', at: number) => void;
+  onSetTime: (field: 'sleep_end', at: number) => void;
   onStampWake: () => void;
-  onStampBed: () => void;
 }) {
-  const [bed, setBed] = useState(toTimeInput(day.sleep_start));
   const [wake, setWake] = useState(toTimeInput(day.sleep_end));
 
-  function commit(field: 'sleep_start' | 'sleep_end', hhmm: string) {
-    if (field === 'sleep_start') setBed(hhmm);
-    else setWake(hhmm);
-    if (hhmm) onSetTime(field, onDay(day.local_day, hhmm));
+  function commit(hhmm: string) {
+    setWake(hhmm);
+    if (hhmm) onSetTime('sleep_end', onDay(day.local_day, hhmm));
   }
 
   return (
     <div className="sleep">
-      {/* Awake first — it is the one you press when the day starts. */}
       <div className="sleep-block">
         <span className="inline-label">Awake</span>
         <div className="sleep-controls">
@@ -79,7 +76,7 @@ export function SleepInput({
             type="time"
             value={wake}
             aria-label="Awake time"
-            onChange={(e) => commit('sleep_end', e.target.value)}
+            onChange={(e) => commit(e.target.value)}
           />
           {isToday && (
             <button className="btn sleep-btn" onClick={onStampWake}>
@@ -89,23 +86,9 @@ export function SleepInput({
         </div>
       </div>
 
-      <div className="sleep-block">
-        <span className="inline-label">Asleep</span>
-        <div className="sleep-controls">
-          <input
-            type="time"
-            value={bed}
-            aria-label="Asleep time"
-            onChange={(e) => commit('sleep_start', e.target.value)}
-          />
-          {isToday && (
-            <button className="btn sleep-btn" onClick={onStampBed}>
-              Down
-            </button>
-          )}
-        </div>
-      </div>
-
+      {/* The hours belong beside the wake time rather than the bedtime: they are
+          only knowable once you are up, and they are what the morning wants to
+          know. The bedtime that earned them was last night's, on another record. */}
       <div className="sleep-summary">
         {hours === null ? (
           <span className="faint">No sleep recorded</span>
@@ -115,6 +98,47 @@ export function SleepInput({
             <span className="faint">in bed {isToday ? 'last night' : 'that night'}</span>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** The evening half: see {@link WakeInput} for how the two times are filed. */
+export function BedInput({
+  day,
+  isToday,
+  onSetTime,
+  onStampBed,
+}: {
+  day: DayEntry;
+  isToday: boolean;
+  onSetTime: (field: 'sleep_start', at: number) => void;
+  onStampBed: () => void;
+}) {
+  const [bed, setBed] = useState(toTimeInput(day.sleep_start));
+
+  function commit(hhmm: string) {
+    setBed(hhmm);
+    if (hhmm) onSetTime('sleep_start', onDay(day.local_day, hhmm));
+  }
+
+  return (
+    <div className="sleep">
+      <div className="sleep-block">
+        <span className="inline-label">Asleep</span>
+        <div className="sleep-controls">
+          <input
+            type="time"
+            value={bed}
+            aria-label="Asleep time"
+            onChange={(e) => commit(e.target.value)}
+          />
+          {isToday && (
+            <button className="btn sleep-btn" onClick={onStampBed}>
+              Down
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -180,7 +204,7 @@ export function ExerciseInput({
       </div>
 
       <button className="btn btn-block" onClick={add} disabled={!canAdd}>
-        {busy ? <span className="spinner" /> : 'Add workout'}
+        {busy ? <span className="spinner" /> : 'Add Workout'}
       </button>
     </div>
   );

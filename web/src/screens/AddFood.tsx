@@ -129,7 +129,7 @@ export function AddFood({
       )}
 
       <button className="btn btn-block" onClick={() => setManual(true)}>
-        Enter a food by hand
+        Enter A Food By Hand
       </button>
 
       {picked && (

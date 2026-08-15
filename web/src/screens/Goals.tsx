@@ -7,7 +7,7 @@
  * note changes, this changes with it.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '../api';
 import { shortDayLabel } from '../dates';
 
@@ -61,28 +61,46 @@ const PLAN: Section[] = [
 export function Goals({
   date,
   today,
-  onDone,
+  trackReview,
+  onReviewed,
 }: {
   date: string;
   today: string;
-  /** Records the review and returns to the day view. */
-  onDone: () => void;
+  /**
+   * Whether reviews are being recorded at all. With goal tracking off the plan is
+   * still here to read — it is the recording that goes, not the reading.
+   */
+  trackReview: boolean;
+  /** Called once the review is on record, so the day screen picks up the tick. */
+  onReviewed: () => void;
 }) {
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  // Nothing here branches on whether the day was already reviewed, so there is
-  // nothing to fetch — press it twice and the second write is a no-op.
-  async function done() {
-    setBusy(true);
-    try {
-      await api.put(`/day/${date}`, { goals_reviewed: true });
-      onDone();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not record that');
-      setBusy(false);
-    }
-  }
+  /**
+   * Opening the page is the review. There is nothing to press: a button that only
+   * confirms what you did by arriving is a step that can be forgotten, and what the
+   * flag records is having read the plan, not having agreed to anything.
+   *
+   * Nothing here branches on whether the day was already reviewed, so there is
+   * nothing to fetch — coming back a second time just rewrites the same true.
+   */
+  useEffect(() => {
+    if (!trackReview) return;
+    let cancelled = false;
+
+    api
+      .put(`/day/${date}`, { goals_reviewed: true })
+      .then(() => {
+        if (!cancelled) onReviewed();
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not record that');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [date, trackReview, onReviewed]);
 
   return (
     <div className="stack">
@@ -101,19 +119,14 @@ export function Goals({
 
       {error && <div className="error">{error}</div>}
 
-      {date !== today && (
+      {/* Past tense: by the time this is on screen the write has already gone. It
+          is worth saying, because the day being marked is the one the rest of the
+          app is pointed at rather than the one you are living. */}
+      {trackReview && date !== today && (
         <div className="note tiny">
-          Marking <strong>{shortDayLabel(date, today)}</strong> as reviewed, not today.
+          Marked <strong>{shortDayLabel(date, today)}</strong> as reviewed, not today.
         </div>
       )}
-
-      {/* The label stays put while saving. Elsewhere the spinner replaces the text,
-          but those buttons have a width set by their row; this one is sized by its
-          label, so swapping it out would shrink the button to a spinning circle. */}
-      <button className="btn btn-inline-end" onClick={done} disabled={busy}>
-        {busy && <span className="spinner" />}
-        Done Reviewing
-      </button>
     </div>
   );
 }

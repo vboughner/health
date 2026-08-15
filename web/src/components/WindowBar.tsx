@@ -4,6 +4,41 @@ const DAY_START = 5 * 60; // 05:00 — the bar covers a waking day, not a full 2
 const DAY_END = 24 * 60;
 const SPAN = DAY_END - DAY_START;
 
+export type WindowTone = 'ok' | 'warn' | 'over';
+
+/**
+ * How the day stands against the eating window, and why.
+ *
+ * Three steps rather than two, because two flatten the difference that matters.
+ * Green means "not broken yet" rather than "finished clean": a day still in
+ * progress, and a day with nothing logged, are both still intact — the window can
+ * only be violated by something actually eaten outside it. Amber is a day that ran
+ * past an edge but still did all of its eating inside a stretch no longer than the
+ * window is wide; that is the window shifted, not abandoned. Red is the failure the
+ * rule exists to prevent: eating spread over more hours than the window allows at
+ * all, whichever end it leaked out of.
+ *
+ * The threshold is the target's own length — ten hours, for 9am–7pm — rather than a
+ * literal ten, so it goes on meaning the same thing if the window is ever retargeted.
+ */
+export function windowVerdict(w: DaySummary['window']): { tone: WindowTone; reasons: string[] } {
+  const reasons = [
+    w.startedOnTime === false && `ate before ${clock(w.target_start)}`,
+    w.endedOnTime === false && `ate after ${clock(w.target_end)}`,
+  ].filter(Boolean) as string[];
+
+  // Measured off the two ends rather than read from spanMinutes, which is null on a
+  // day with a single entry — that day has a span, it is just zero.
+  const span = w.first !== null && w.last !== null ? toMinutes(w.last) - toMinutes(w.first) : 0;
+  const target = toMinutes(w.target_end) - toMinutes(w.target_start);
+
+  // Outrunning the target's length is impossible without leaving it at one end, so
+  // the red case always has a violation to name alongside the length.
+  if (span > target) return { tone: 'over', reasons: [...reasons, `${formatSpan(span)} window`] };
+
+  return { tone: reasons.length > 0 ? 'warn' : 'ok', reasons };
+}
+
 /**
  * The day's actual eating window against the 9am–7pm target, drawn to scale.
  *
@@ -15,23 +50,14 @@ export function WindowBar({ window: w }: { window: DaySummary['window'] }) {
   const targetEnd = toMinutes(w.target_end);
 
   // One line carrying both the goal and how the day is going against it.
-  //
-  // Green means "not broken yet" rather than "finished clean": a day still in
-  // progress, and a day with nothing logged, are both still intact. The window
-  // can only be violated by something actually eaten outside it, so the line
-  // only turns amber once that has happened.
-  const violations = [
-    w.startedOnTime === false && `ate before ${clock(w.target_start)}`,
-    w.endedOnTime === false && `ate after ${clock(w.target_end)}`,
-  ].filter(Boolean) as string[];
-
-  const intact = violations.length === 0;
+  const { tone, reasons } = windowVerdict(w);
+  const intact = tone === 'ok';
 
   const rule = (
-    <div className={`win-rule ${intact ? 'win-rule-ok' : 'win-rule-bad'}`}>
+    <div className={`win-rule win-rule-${tone}`}>
       <span aria-hidden="true">{intact ? '✓' : '✗'}</span> Eating window {clock(w.target_start)}–
       {clock(w.target_end)}
-      {!intact && <span className="win-rule-reason"> · {violations.join(', ')}</span>}
+      {!intact && <span className="win-rule-reason"> · {reasons.join(', ')}</span>}
     </div>
   );
 
