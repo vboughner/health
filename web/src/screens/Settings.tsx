@@ -48,10 +48,8 @@ export function Settings({
         </div>
       </div>
 
-      {/* Last on the page, and the only thing here you never mean to press — so it
-          gets some clear space of its own rather than sitting against the card
-          above it and the tab bar below. */}
-      <div className="row row-end settings-logout">
+      {/* Last on the page. Spaced by the stack alone, like everything else here. */}
+      <div className="row row-end">
         <button className="btn-ghost tiny" onClick={onLogout}>
           Log Out
         </button>

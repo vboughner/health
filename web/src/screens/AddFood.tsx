@@ -25,10 +25,7 @@ export function AddFood({
   // Results carry the query they belong to, so a stale response for an older query
   // is simply not rendered rather than needing to be cleared.
   const [results, setResults] = useState<{ query: string; data: SearchResults } | null>(null);
-  const [quick, setQuick] = useState<{ frequent: Food[]; recent: Food[] }>({
-    frequent: [],
-    recent: [],
-  });
+  const [frequent, setFrequent] = useState<Food[]>([]);
   const [quickVersion, setQuickVersion] = useState(0);
   const [picked, setPicked] = useState<Pickable | null>(null);
   const [manual, setManual] = useState(false);
@@ -39,15 +36,17 @@ export function AddFood({
   const current = results?.query === trimmed ? results.data : null;
   const searching = searchable && current === null;
 
+  // Only the frequent list. A Recent one sat beneath it and was mostly the same
+  // foods in a different order — anything eaten often was eaten lately too, so it
+  // was a second copy of the answer rather than a second answer. /foods/recent is
+  // still on the server, unused.
   useEffect(() => {
     let cancelled = false;
 
-    Promise.all([
-      api.get<{ foods: Food[] }>('/foods/frequent'),
-      api.get<{ foods: Food[] }>('/foods/recent'),
-    ])
-      .then(([frequent, recent]) => {
-        if (!cancelled) setQuick({ frequent: frequent.foods, recent: recent.foods });
+    api
+      .get<{ foods: Food[] }>('/foods/frequent')
+      .then((res) => {
+        if (!cancelled) setFrequent(res.foods);
       })
       .catch((err) => {
         if (!cancelled) console.error(err);
@@ -113,13 +112,19 @@ export function AddFood({
 
       {toast && <div className={toast === 'Logged' ? 'toast' : 'toast toast-warn'}>{toast}</div>}
 
+      {/* Above the lists rather than under them: it is the way out when the search
+          and the usual foods have both failed you, and at the foot of a long list
+          it was the one thing you had to scroll past everything to reach. */}
+      <button className="btn btn-block" onClick={() => setManual(true)}>
+        Enter A Food By Hand
+      </button>
+
       {searchable ? (
         <SearchResultList results={current} searching={searching} onPick={setPicked} />
       ) : (
         <>
-          <QuickList title="Eaten often" foods={quick.frequent} onPick={setPicked} />
-          <QuickList title="Recent" foods={quick.recent} onPick={setPicked} />
-          {quick.frequent.length === 0 && quick.recent.length === 0 && (
+          <QuickList title="Eaten often" foods={frequent} onPick={setPicked} />
+          {frequent.length === 0 && (
             <div className="empty">
               Search for a food to log it. After a few days your usual foods show up here for
               one-tap logging.
@@ -127,10 +132,6 @@ export function AddFood({
           )}
         </>
       )}
-
-      <button className="btn btn-block" onClick={() => setManual(true)}>
-        Enter A Food By Hand
-      </button>
 
       {picked && (
         <LogSheet

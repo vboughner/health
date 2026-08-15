@@ -104,7 +104,7 @@ export function Goals({
 
   return (
     <div className="stack">
-      <h1 className="screen-title">The plan</h1>
+      <h1 className="screen-title">Goals</h1>
 
       {PLAN.map((section) => (
         <div className="card" key={section.title}>

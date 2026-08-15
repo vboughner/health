@@ -109,8 +109,11 @@ export function Trends({
 
       {/* Every panel below belongs to one of the toggles, and goes with it. The
           history is never deleted, so switching a feature back on brings its whole
-          chart back rather than starting the record over. */}
-      {(settings.weight || settings.food || settings.goals) && (
+          chart back rather than starting the record over.
+
+          The tiles are ordered by feature, the same order the cards below run in, so
+          switching one off leaves a gap in one place rather than two. */}
+      {!nothingTracked(settings) && (
         <div className="tiles">
           {settings.weight && (
             <Tile
@@ -130,6 +133,18 @@ export function Trends({
           )}
           {settings.food && <Tile value={s.avg_kcal ?? '—'} unit="cal" label="Avg eaten" />}
           {settings.food && <Tile value={`${s.window_compliance}`} unit="%" label="In window" />}
+          {settings.exercise && (
+            <Tile
+              value={s.avg_burned ?? '—'}
+              unit="cal"
+              label="Avg burned"
+              // Green once the average clears the daily burn target. The Averages
+              // list used to print the target beside the figure; a tile has room
+              // for one number, so it says whether the target was met instead.
+              tone={s.avg_burned !== null && s.avg_burned >= data.burn_target ? 'good' : undefined}
+            />
+          )}
+          {settings.sleep && <Tile value={s.avg_sleep_hours ?? '—'} unit="h" label="Avg sleep" />}
           {settings.goals && (
             <Tile value={s.goals_review_streak} unit="days" label="Goal review streak" />
           )}
@@ -200,28 +215,9 @@ export function Trends({
         </div>
       )}
 
-      {/* Days logged sits with the calories: it counts the days with food on them,
-          so it means nothing without them. */}
-      {(settings.food || settings.exercise || settings.sleep) && (
-        <div className="card">
-          <div className="card-title">Averages</div>
-          <div className="stack">
-            {settings.food && <Line label="Calories eaten" value={s.avg_kcal} unit="cal" />}
-            {settings.exercise && (
-              <Line
-                label="Calories burned"
-                value={s.avg_burned}
-                unit="cal"
-                target={data.burn_target}
-              />
-            )}
-            {settings.sleep && <Line label="Sleep" value={s.avg_sleep_hours} unit="h" />}
-            {settings.food && (
-              <Line label="Days logged" value={s.days_logged} unit={`of ${data.days.length}`} />
-            )}
-          </div>
-        </div>
-      )}
+      {/* The Averages card that used to sit here said nothing the tiles above do not:
+          eaten, burned and sleep are all tiles now, and the days-logged count is
+          already in the line under the calorie chart. */}
     </div>
   );
 }
@@ -244,29 +240,6 @@ function Tile({
         <span className="tile-unit">{unit}</span>
       </div>
       <div className="tile-label">{label}</div>
-    </div>
-  );
-}
-
-function Line({
-  label,
-  value,
-  unit,
-  target,
-}: {
-  label: string;
-  value: number | null;
-  unit: string;
-  target?: number;
-}) {
-  return (
-    <div className="row">
-      <span className="muted">{label}</span>
-      <span>
-        {value === null ? <span className="faint">—</span> : value}
-        <span className="faint tiny"> {unit}</span>
-        {target !== undefined && <span className="faint tiny"> · target {target}</span>}
-      </span>
     </div>
   );
 }

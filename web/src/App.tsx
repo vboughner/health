@@ -17,7 +17,7 @@ type Tab = 'today' | 'add' | 'trends' | 'settings' | 'goals';
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'today', label: 'Day', icon: '◎' },
   { id: 'goals', label: 'Goals', icon: '⌖' },
-  { id: 'add', label: 'Add Food', icon: '＋' },
+  { id: 'add', label: 'Food', icon: '＋' },
   { id: 'trends', label: 'Trends', icon: '▨' },
   { id: 'settings', label: 'Settings', icon: '⚙' },
 ];
@@ -61,9 +61,24 @@ export function App() {
 
   const handleLogged = useCallback(() => setRefreshKey((k) => k + 1), []);
 
+  /**
+   * Every page opens at the top. The document keeps one scroll offset across tabs,
+   * so leaving the day scrolled to Bedtime would drop you into the middle of Trends.
+   *
+   * Deliberately keyed on the tab and the session, not on the data: stepping between
+   * days inside Today must not scroll, which is the whole reason that screen holds
+   * the previous day on the page rather than swapping in a spinner.
+   */
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [tab, user]);
+
   function handleLoggedIn(next: User) {
     setUser(next);
     setDate(todayIn(next.timezone));
+    // Logging out never unmounts App, so the tab from the last session is still
+    // sitting there. A new sign-in starts where the app starts.
+    setTab('today');
   }
 
   if (checking) {
