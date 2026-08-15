@@ -92,6 +92,8 @@ export function AddFood({
 
   return (
     <div className="stack">
+      <h1 className="screen-title">Eat Food</h1>
+
       {date !== today && (
         <>
           <div className="note tiny">

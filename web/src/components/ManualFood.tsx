@@ -117,12 +117,9 @@ export function ManualFood({
           </div>
 
           <div className="field-grid">
-            <Field
-              label={byServing ? 'Calories a serving' : 'Calories'}
-              value={kcal}
-              onChange={setKcal}
-              required
-            />
+            {/* Unqualified in both modes — the line under the sheet title already
+                says whether these figures are per 100 g or per serving. */}
+            <Field label="Calories" value={kcal} onChange={setKcal} required />
             <Field label="Protein g" value={protein} onChange={setProtein} />
             <Field label="Fat g" value={fat} onChange={setFat} />
             <Field label="Carbs g" value={carb} onChange={setCarb} />
