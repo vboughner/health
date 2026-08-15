@@ -61,7 +61,7 @@ export function registerLogRoutes(app: FastifyInstance, opts: AppOptions): void 
 
       let grams: number;
       try {
-        grams = toGrams(body.quantity, body.unit, food.serving_grams);
+        grams = toGrams(body.quantity, body.unit, food.serving_grams, food.weight_unknown);
       } catch (err) {
         return reply
           .code(400)
@@ -80,6 +80,9 @@ export function registerLogRoutes(app: FastifyInstance, opts: AppOptions): void 
         quantity: body.quantity,
         unit: body.unit,
         grams,
+        // Snapshotted alongside the calories: how this entry reads must not change
+        // if the food behind it is later edited or re-cached.
+        weight_unknown: food.weight_unknown,
         nutrition,
       });
 

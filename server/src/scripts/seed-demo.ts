@@ -253,6 +253,9 @@ function main() {
         quantity: grams,
         unit: 'g',
         grams,
+        // Seeded foods are all weighed — the calorie-per-serving kind is something
+        // you type by hand, and there is nothing to demonstrate by faking one.
+        weight_unknown: false,
         nutrition: nutritionForGrams(
           {
             kcal_per_100g: food.kcal_per_100g,

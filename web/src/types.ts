@@ -25,6 +25,12 @@ export interface Food {
   sodium_mg: number | null;
   ingredients: string | null;
   processed_flags: string[];
+  /**
+   * The serving is defined by its calories rather than its weight — "one bowl is
+   * 320 cal". `serving_grams` is a bookkeeping 100 so the per-100g maths still lands
+   * on exactly that figure, but no grams are shown and it cannot be logged by weight.
+   */
+  weight_unknown: boolean;
 }
 
 /** A USDA search hit — not stored yet, so it has no id. */
@@ -61,6 +67,8 @@ export interface FoodLogEntry {
   quantity: number;
   unit: Unit;
   grams: number;
+  /** Snapshotted from the food, so a past entry keeps hiding its bookkeeping grams. */
+  weight_unknown: boolean;
   kcal: number;
   protein_g: number;
   fat_g: number;

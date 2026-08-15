@@ -36,6 +36,9 @@ export function LogSheet({
   onLogged: (warning: string | null) => void;
 }) {
   const hasServing = !!food.serving_grams && food.serving_grams > 0;
+  // A food whose serving was defined by its calories has no weight anyone measured,
+  // so servings are the only honest unit for it and grams are never shown.
+  const servingsOnly = isSaved(food) && food.weight_unknown;
   const isBackfill = date !== today;
 
   const [unit, setUnit] = useState<Unit>(hasServing ? 'serving' : 'g');
@@ -95,19 +98,23 @@ export function LogSheet({
             aria-label="Quantity"
             autoFocus
           />
-          <div className="seg">
-            {UNITS.map((u) => (
-              <button
-                key={u.id}
-                className="seg-btn"
-                aria-pressed={unit === u.id}
-                disabled={u.id === 'serving' && !hasServing}
-                onClick={() => setUnit(u.id)}
-              >
-                {u.label}
-              </button>
-            ))}
-          </div>
+          {servingsOnly ? (
+            <div className="qty-unit">{food.serving_desc || 'servings'}</div>
+          ) : (
+            <div className="seg">
+              {UNITS.map((u) => (
+                <button
+                  key={u.id}
+                  className="seg-btn"
+                  aria-pressed={unit === u.id}
+                  disabled={u.id === 'serving' && !hasServing}
+                  onClick={() => setUnit(u.id)}
+                >
+                  {u.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {!hasServing && unit === 'serving' && (
@@ -129,7 +136,7 @@ export function LogSheet({
             <div className="preview-kcal">
               {Math.round(p.kcal)}
               <span className="preview-kcal-unit">cal</span>
-              <span className="faint tiny"> · {Math.round(p.grams)}g</span>
+              {!servingsOnly && <span className="faint tiny"> · {Math.round(p.grams)}g</span>}
             </div>
             <MacroBar protein_g={p.protein_g} fat_g={p.fat_g} carb_g={p.carb_g} />
           </div>

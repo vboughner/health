@@ -80,6 +80,15 @@ by fetching one extra day back. This was inverted once (filed under the morning 
 night ended) and had to change, because it meant pressing "Down" wrote to *tomorrow's*
 record and the field on screen could not update.
 
+**A food with `weight_unknown` has grams that nobody measured.** Everything is stored
+per 100 g because that is how USDA publishes it, so a hand-entered food whose serving
+is defined by its calories ("one bowl is 320 cal") is stored with `serving_grams = 100`
+and the per-serving figures in the per-100g columns. One serving then works out to
+exactly the calories typed and no arithmetic changes. `weight_unknown` (migration 003)
+is what stops those bookkeeping grams being shown as if they were real: such a food
+displays no gram figure anywhere and `toGrams` refuses to log it by weight. The flag is
+snapshotted onto `food_log` for the same reason the calories are.
+
 **The eating window is derived, never asked.** First and last bite come from `food_log`
 timestamps. A checkbox is something you can lie to; a timestamp is not.
 

@@ -354,8 +354,16 @@ function formatTime(epochMs: number, timezone: string): string {
   }).format(new Date(epochMs));
 }
 
-function formatAmount(e: { quantity: number; unit: string; grams: number }): string {
+function formatAmount(e: {
+  quantity: number;
+  unit: string;
+  grams: number;
+  weight_unknown: boolean;
+}): string {
   const qty = Number.isInteger(e.quantity) ? e.quantity : e.quantity.toFixed(1);
-  if (e.unit === 'serving') return `${qty} × serving (${Math.round(e.grams)}g)`;
-  return `${qty} ${e.unit}`;
+  if (e.unit !== 'serving') return `${qty} ${e.unit}`;
+  // A calorie-defined serving has grams only as bookkeeping — printing them would
+  // be quoting a measurement nobody took.
+  if (e.weight_unknown) return `${qty} × serving`;
+  return `${qty} × serving (${Math.round(e.grams)}g)`;
 }

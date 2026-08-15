@@ -28,11 +28,21 @@ const GRAMS_PER_OZ = 28.3495;
  * Convert a logged quantity to grams.
  *
  * `serving` needs the food's own serving size; a food with no serving size on
- * record can only be logged by weight.
+ * record can only be logged by weight. The reverse holds for a food whose serving
+ * was defined by its calories: its grams are a bookkeeping unit rather than a
+ * measurement, so weighing out 50 g of it would be inventing a number.
  */
-export function toGrams(quantity: number, unit: Unit, servingGrams?: number | null): number {
+export function toGrams(
+  quantity: number,
+  unit: Unit,
+  servingGrams?: number | null,
+  weightUnknown = false,
+): number {
   if (!Number.isFinite(quantity) || quantity < 0) {
     throw new Error(`Invalid quantity: ${quantity}`);
+  }
+  if (weightUnknown && unit !== 'serving') {
+    throw new Error('This food is measured in servings — it has no weight on record');
   }
 
   switch (unit) {

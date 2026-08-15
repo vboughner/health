@@ -762,6 +762,15 @@ textarea:focus {
   font-variant-numeric: tabular-nums;
 }
 
+/* Stands in for the unit picker when there is only one honest unit — a food whose
+   serving was defined by its calories has no weight to offer as an alternative. */
+.qty-unit {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  color: var(--text-dim);
+}
+
 .seg {
   display: flex;
   flex: 1;

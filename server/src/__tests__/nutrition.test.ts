@@ -28,6 +28,21 @@ describe('toGrams', () => {
     expect(() => toGrams(1, 'serving', 0)).toThrow(/no serving size/);
   });
 
+  it('refuses weight for a food whose serving is defined by its calories', () => {
+    // Its grams are a bookkeeping 100 per serving, not something anyone measured,
+    // so weighing out 50 g of it would be inventing a number.
+    expect(() => toGrams(50, 'g', 100, true)).toThrow(/no weight on record/);
+    expect(() => toGrams(2, 'oz', 100, true)).toThrow(/no weight on record/);
+  });
+
+  it('still counts servings of one, at the nominal 100 g a serving', () => {
+    // 2 servings of a 320-cal food is 200 g at 320 kcal/100g — exactly 640.
+    expect(toGrams(2, 'serving', 100, true)).toBe(200);
+    expect(
+      nutritionForGrams({ kcal_per_100g: 320, protein_g: 0, fat_g: 0, carb_g: 0 }, 200).kcal,
+    ).toBe(640);
+  });
+
   it('rejects a negative or non-numeric quantity', () => {
     expect(() => toGrams(-1, 'g')).toThrow(/Invalid quantity/);
     expect(() => toGrams(NaN, 'g')).toThrow(/Invalid quantity/);

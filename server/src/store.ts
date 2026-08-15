@@ -26,6 +26,13 @@ export interface Food {
   sodium_mg: number | null;
   ingredients: string | null;
   processed_flags: string[];
+  /**
+   * The serving is defined by its calories, not its weight. `serving_grams` is 100
+   * so the per-100g arithmetic still works out to exactly the calories that were
+   * typed, but nobody measured it — see migration 003. Such a food shows no grams
+   * anywhere and can only be logged by the serving.
+   */
+  weight_unknown: boolean;
 }
 
 /** A food as supplied by the client — from a USDA search result or typed by hand. */
@@ -43,6 +50,7 @@ export interface NewFood {
   added_sugar_g?: number | null;
   sodium_mg?: number | null;
   ingredients?: string | null;
+  weight_unknown?: boolean;
 }
 
 export interface FoodLogEntry extends Nutrition {
@@ -54,22 +62,30 @@ export interface FoodLogEntry extends Nutrition {
   quantity: number;
   unit: string;
   grams: number;
+  /** Snapshotted from the food, so a past entry keeps hiding its bookkeeping grams. */
+  weight_unknown: boolean;
   processed_flags: string[];
 }
 
 const FOOD_COLUMNS = `
   id, user_id, source, source_id, name, brand, serving_desc, serving_grams,
   kcal_per_100g, protein_g, fat_g, carb_g, added_sugar_g, sodium_mg,
-  ingredients, processed_flags
+  ingredients, processed_flags, weight_unknown
 `;
 
-interface FoodRow extends Omit<Food, 'processed_flags'> {
+interface FoodRow extends Omit<Food, 'processed_flags' | 'weight_unknown'> {
   processed_flags: string;
+  weight_unknown: number;
 }
 
 function toFood(row: FoodRow | undefined): Food | undefined {
   if (!row) return undefined;
-  return { ...row, processed_flags: parseFlags(row.processed_flags) };
+  return {
+    ...row,
+    processed_flags: parseFlags(row.processed_flags),
+    // SQLite has no boolean; the column is 0 or 1.
+    weight_unknown: row.weight_unknown === 1,
+  };
 }
 
 function parseFlags(raw: string): string[] {
@@ -127,8 +143,8 @@ export function upsertFood(db: Db, userId: number, input: NewFood): Food {
       `INSERT INTO foods (
          user_id, source, source_id, name, brand, serving_desc, serving_grams,
          kcal_per_100g, protein_g, fat_g, carb_g, added_sugar_g, sodium_mg,
-         ingredients, processed_flags, created_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         ingredients, processed_flags, weight_unknown, created_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       input.source === 'manual' ? userId : null,
@@ -146,6 +162,7 @@ export function upsertFood(db: Db, userId: number, input: NewFood): Food {
       input.sodium_mg ?? null,
       input.ingredients ?? null,
       JSON.stringify(flags),
+      input.weight_unknown ? 1 : 0,
       Date.now(),
     );
 
@@ -222,6 +239,7 @@ export interface NewFoodLog {
   quantity: number;
   unit: string;
   grams: number;
+  weight_unknown: boolean;
   nutrition: Nutrition;
 }
 
@@ -230,8 +248,8 @@ export function insertFoodLog(db: Db, userId: number, entry: NewFoodLog): number
     .prepare(
       `INSERT INTO food_log (
          user_id, food_id, food_name, eaten_at, local_day,
-         quantity, unit, grams, kcal, protein_g, fat_g, carb_g
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         quantity, unit, grams, weight_unknown, kcal, protein_g, fat_g, carb_g
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       userId,
@@ -242,6 +260,7 @@ export function insertFoodLog(db: Db, userId: number, entry: NewFoodLog): number
       entry.quantity,
       entry.unit,
       entry.grams,
+      entry.weight_unknown ? 1 : 0,
       entry.nutrition.kcal,
       entry.nutrition.protein_g,
       entry.nutrition.fat_g,
@@ -251,39 +270,49 @@ export function insertFoodLog(db: Db, userId: number, entry: NewFoodLog): number
   return Number(info.lastInsertRowid);
 }
 
+interface FoodLogRow extends Omit<FoodLogEntry, 'processed_flags' | 'weight_unknown'> {
+  processed_flags: string;
+  weight_unknown: number;
+}
+
+function toFoodLogEntry(row: FoodLogRow): FoodLogEntry {
+  return {
+    ...row,
+    processed_flags: parseFlags(row.processed_flags),
+    weight_unknown: row.weight_unknown === 1,
+  };
+}
+
 export function listFoodLog(db: Db, userId: number, localDay: string): FoodLogEntry[] {
   const rows = db
     .prepare(
       `SELECT l.id, l.food_id, l.food_name, l.eaten_at, l.local_day, l.quantity, l.unit,
-              l.grams, l.kcal, l.protein_g, l.fat_g, l.carb_g,
+              l.grams, l.weight_unknown, l.kcal, l.protein_g, l.fat_g, l.carb_g,
               COALESCE(f.processed_flags, '[]') AS processed_flags
        FROM food_log l
        LEFT JOIN foods f ON f.id = l.food_id
        WHERE l.user_id = ? AND l.local_day = ?
        ORDER BY l.eaten_at`,
     )
-    .all(userId, localDay) as (Omit<FoodLogEntry, 'processed_flags'> & {
-    processed_flags: string;
-  })[];
+    .all(userId, localDay) as FoodLogRow[];
 
-  return rows.map((r) => ({ ...r, processed_flags: parseFlags(r.processed_flags) }));
+  return rows.map(toFoodLogEntry);
 }
 
 export function getFoodLogEntry(db: Db, userId: number, id: number): FoodLogEntry | undefined {
   const row = db
     .prepare(
       `SELECT l.id, l.food_id, l.food_name, l.eaten_at, l.local_day, l.quantity, l.unit,
-              l.grams, l.kcal, l.protein_g, l.fat_g, l.carb_g,
+              l.grams, l.weight_unknown, l.kcal, l.protein_g, l.fat_g, l.carb_g,
               COALESCE(f.processed_flags, '[]') AS processed_flags
        FROM food_log l
        LEFT JOIN foods f ON f.id = l.food_id
        WHERE l.user_id = ? AND l.id = ?`,
     )
-    .get(userId, id) as
-    (Omit<FoodLogEntry, 'processed_flags'> & { processed_flags: string }) | undefined;
+    .get(userId, id) as FoodLogRow | undefined;
 
   if (!row) return undefined;
-  return { ...row, processed_flags: parseFlags(row.processed_flags) };
+  return toFoodLogEntry(row);
 }
 
 /** Returns false when the entry doesn't exist or belongs to someone else. */

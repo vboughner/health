@@ -468,6 +468,65 @@ describe('food logging', () => {
       expect((await post('/api/foods', { kcal_per_100g: 60 })).statusCode).toBe(400);
       expect((await post('/api/foods', { name: 'Soup' })).statusCode).toBe(400);
     });
+
+    describe('a serving defined by its calories', () => {
+      /** "One bowl is 320 cal", with no weight anyone put on a scale. */
+      const byCalories = () =>
+        post('/api/foods', {
+          name: 'Chili at the diner',
+          kcal_per_100g: 320,
+          serving_grams: 100,
+          serving_desc: '1 bowl',
+          weight_unknown: true,
+        });
+
+      it('logs a whole number of servings at exactly the calories typed', async () => {
+        const created = await byCalories();
+
+        const logged = await post('/api/log/food', {
+          food_id: created.json().food.id,
+          quantity: 2.5,
+          unit: 'serving',
+        });
+
+        expect(logged.json().entry.kcal).toBe(800);
+      });
+
+      it.each([['g'], ['oz']])('refuses to log it by %s', async (unit) => {
+        const created = await byCalories();
+
+        const res = await post('/api/log/food', {
+          food_id: created.json().food.id,
+          quantity: 50,
+          unit,
+        });
+
+        expect(res.statusCode).toBe(400);
+        expect(res.json().error).toMatch(/no weight on record/);
+      });
+
+      it('carries the flag onto the entry, so the log can hide its grams', async () => {
+        const created = await byCalories();
+        await post('/api/log/food', {
+          food_id: created.json().food.id,
+          quantity: 1,
+          unit: 'serving',
+        });
+
+        const entries = (await get('/api/summary/today')).json().food.entries;
+        expect(entries[0].weight_unknown).toBe(true);
+      });
+
+      it('leaves an ordinary weighed food unflagged', async () => {
+        const created = await post('/api/foods', {
+          name: "Mom's lentil soup",
+          kcal_per_100g: 60,
+          serving_grams: 350,
+        });
+
+        expect(created.json().food.weight_unknown).toBe(false);
+      });
+    });
   });
 
   describe('access control', () => {
