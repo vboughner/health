@@ -4,13 +4,21 @@
 // lives outside the repo so a redeploy can never overwrite it. Config reads that
 // file via ENV_FILE, so nothing sensitive appears here or in git.
 
+const path = require('path');
+
 const ENV_FILE = process.env.HEALTH_ENV_FILE ?? '/home/griljor/health-data/.env';
 
 module.exports = {
   apps: [
     {
       name: 'health',
-      script: 'dist/main.js',
+      // Anchored to this file, not to the shell's working directory. PM2 resolves a
+      // relative `script` against cwd, so `pm2 start server/ecosystem.config.js` from
+      // the repo root looked for <root>/dist/main.js and failed with "Script not
+      // found" — after the delete that preceded it, which meant an outage on what was
+      // meant to be a restart. Starting it from anywhere now works.
+      script: path.join(__dirname, 'dist/main.js'),
+      cwd: __dirname,
       // 4300, not 3xxx: griljor holds 3000-3007 here and each local griljor
       // worktree claims the next 3N00.
       env: {
