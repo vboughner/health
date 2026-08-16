@@ -9,6 +9,7 @@ import { registerLogRoutes } from './routes/log';
 import { registerDayRoutes } from './routes/day';
 import { registerSummaryRoutes } from './routes/summary';
 import { registerTrendRoutes } from './routes/trends';
+import { registerGoalRoutes } from './routes/goals';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -23,6 +24,8 @@ declare module 'fastify' {
 export interface AppOptions {
   db: Db;
   usda: UsdaClient;
+  /** Where goals recordings are written. See config.mediaDir. */
+  mediaDir: string;
   sessionSecret: string;
   isProduction: boolean;
   logger?: boolean;
@@ -35,6 +38,14 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.decorateRequest('user', undefined);
 
   app.register(cookie, { secret: opts.sessionSecret });
+
+  // A recording is POSTed as the request body with the container's own content type —
+  // audio/webm;codecs=opus and friends. A regex parser catches the whole family without
+  // enumerating codec spellings, and buffers the bytes rather than trying to parse
+  // them. The per-route bodyLimit in routes/goals.ts is what bounds it.
+  app.addContentTypeParser(/^audio\//, { parseAs: 'buffer' }, (_request, body, done) => {
+    done(null, body);
+  });
 
   // Resolve the session on every request. Routes that need a user use the
   // requireUser preHandler; everything else can still read request.user.
@@ -62,6 +73,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       registerDayRoutes(api, opts);
       registerSummaryRoutes(api, opts);
       registerTrendRoutes(api, opts);
+      registerGoalRoutes(api, opts);
     },
     { prefix: '/api' },
   );
