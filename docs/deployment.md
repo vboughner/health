@@ -47,6 +47,7 @@ cd ~/health/web    && npm install && npm run build
 ```sh
 cat > ~/health-data/.env <<EOF
 DB_PATH=/home/griljor/health-data/app.db
+MEDIA_DIR=/home/griljor/health-data/audio
 SESSION_SECRET=$(openssl rand -hex 32)
 USDA_API_KEY=<your key>
 PORT=4300
@@ -78,6 +79,12 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+
+        # A goals recording is posted as the request body. nginx's default cap is 1m,
+        # which a two-minute reading clears and a longer one does not — and the failure
+        # arrives as an nginx 413 the app never sees. Kept a little above the server's
+        # own 10 MB limit so the app's error message is the one that gets shown.
+        client_max_body_size 12m;
     }
 
     # Never cache the shell or the service worker — otherwise a deploy
@@ -132,13 +139,25 @@ cd ~/health/server && npm run create-user -- van
 
 ### 8. Nightly backup
 
-This is real data that exists nowhere else. Add to `crontab -e`:
+The database and the recordings are two files in two places, so the backup covers
+both — see `scripts/backup.sh`. A `.backup` of `app.db` alone would look complete
+and quietly lose every recording.
+
+```sh
+crontab -e
+```
 
 ```
-0 3 * * * /usr/bin/sqlite3 /home/griljor/health-data/app.db ".backup '/home/griljor/health-data/backups/app-$(date +\%F).db'" && find /home/griljor/health-data/backups -name 'app-*.db' -mtime +14 -delete
+0 3 * * * /home/griljor/health/scripts/backup.sh >> /home/griljor/health-data/backup.log 2>&1
 ```
 
-Needs `sqlite3` on the box: `sudo apt-get install -y sqlite3`.
+Keeps 14 days of each. Check it after the first night — this is the first thing on
+this VPS with a real database, and the data exists nowhere else:
+
+```sh
+ls -la ~/health-data/backups
+tail ~/health-data/backup.log
+```
 
 ## Updating
 
