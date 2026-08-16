@@ -13,6 +13,9 @@ interface TrendDay {
   window_compliant: boolean | null;
   // Null on days with nothing recorded at all — drawn as a blank cell, not a miss.
   goals_reviewed: boolean | null;
+  // The goal in force on this day (Task 2) — not necessarily today's, on a range
+  // spanning a change.
+  budget: number;
 }
 
 interface Trends {
@@ -176,8 +179,7 @@ export function Trends({
             Calories <span className="faint">· budget {data.budget}</span>
           </div>
           <CalorieChart
-            points={data.days.map((d) => ({ day: d.day, value: d.kcal }))}
-            budget={data.budget}
+            points={data.days.map((d) => ({ day: d.day, value: d.kcal, budget: d.budget }))}
           />
           <div className="tiny faint">
             {s.days_under_budget} of {s.days_logged} logged days at or under budget.

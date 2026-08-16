@@ -166,10 +166,42 @@ export function WeightChart({ points, smoothed }: { points: Series[]; smoothed: 
 }
 
 /**
+ * A stepped line through a per-point value, held flat across each point and jumping
+ * at the midpoint between two that differ.
+ *
+ * Stepped rather than sloped because the budget was one number and then another —
+ * there was never a day it was 2300 on the way down.
+ */
+export function stepPath(
+  points: { budget: number }[],
+  geom: { x: (i: number) => number; y: (v: number) => number },
+  left: number,
+  right: number,
+): string {
+  const boundary = (i: number) => (geom.x(i - 1) + geom.x(i)) / 2;
+
+  let d = '';
+  points.forEach((p, i) => {
+    const y = geom.y(p.budget);
+    const x0 = i === 0 ? left : boundary(i);
+    const x1 = i === points.length - 1 ? right : boundary(i + 1);
+    // The L back to x0 at the new height is the riser; when the height has not
+    // changed it is a zero-length segment and draws nothing.
+    d += `${i === 0 ? 'M' : 'L'} ${x0} ${y} L ${x1} ${y} `;
+  });
+
+  return d;
+}
+
+/**
  * Daily calories against the budget. Position already says whether a bar cleared
  * the reference line; the color reinforces it rather than carrying it alone.
+ *
+ * The budget rides on each point rather than being one number for the chart, because
+ * a range can span a change to it. Colouring bars against today's figure while the
+ * caption below counted them per day would have the page contradicting itself.
  */
-export function CalorieChart({ points, budget }: { points: Series[]; budget: number }) {
+export function CalorieChart({ points }: { points: (Series & { budget: number })[] }) {
   if (points.every((p) => p.value === null)) {
     return <div className="empty tiny">Nothing logged in this range yet.</div>;
   }
@@ -177,9 +209,9 @@ export function CalorieChart({ points, budget }: { points: Series[]; budget: num
   return (
     <ChartFrame
       points={points}
-      // Zero baseline, and the axis must reach the budget line even on a week
-      // where every day came in under it.
-      scale={{ fromZero: true, include: [budget] }}
+      // Zero baseline, and the axis must reach every budget in the range even on a
+      // week where every day came in under all of them.
+      scale={{ fromZero: true, include: points.map((p) => p.budget) }}
       tooltip={(i) => (
         <>
           <div className="chart-tip-day">{longDay(points[i].day)}</div>
@@ -191,11 +223,9 @@ export function CalorieChart({ points, budget }: { points: Series[]; budget: num
     >
       {(geom) => (
         <>
-          <line
-            x1={PAD.left}
-            x2={geom.width - PAD.right}
-            y1={geom.y(budget)}
-            y2={geom.y(budget)}
+          <path
+            d={stepPath(points, geom, PAD.left, geom.width - PAD.right)}
+            fill="none"
             className="chart-ref"
           />
           {points.map((p, i) => {
@@ -210,7 +240,7 @@ export function CalorieChart({ points, budget }: { points: Series[]; budget: num
                 width={geom.barWidth}
                 height={Math.max(2, base - top)}
                 rx={Math.min(4, geom.barWidth / 2)}
-                className={p.value > budget ? 'chart-bar chart-bar-over' : 'chart-bar'}
+                className={p.value > p.budget ? 'chart-bar chart-bar-over' : 'chart-bar'}
               />
             );
           })}
