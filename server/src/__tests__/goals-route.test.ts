@@ -142,6 +142,18 @@ describe('POST /api/goals/recording', () => {
     expect(fs.readdirSync(mediaDir)).toHaveLength(0);
   });
 
+  it('accepts a take that ran to exactly the cap', async () => {
+    const { app, van } = await setup();
+
+    // The recorder stops a take at exactly MAX_RECORDING_MS, so this is the longest
+    // honest duration there is. Rejecting it would throw away the one recording the
+    // cap exists to save.
+    const res = await upload(app, van.cookie, AUDIO, 'audio/webm', MAX_RECORDING_MS);
+
+    expect(res.statusCode).toBe(201);
+    expect(res.json().recording.duration_ms).toBe(MAX_RECORDING_MS);
+  });
+
   it('refuses a recording over the size cap', async () => {
     const { app, mediaDir, van } = await setup();
 
