@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { hash, verify } from '@node-rs/argon2';
 import type { Db } from './db';
+import { localDay } from './domain/day';
 import { FEATURE_COLUMNS, FEATURE_KEYS, type Features } from './domain/features';
 import { DEFAULT_GOALS } from './domain/goals';
 import { putGoalPeriod } from './store';
@@ -56,9 +57,18 @@ export async function verifyPassword(passwordHash: string, password: string): Pr
  * helpers call this function too — so every account in every test has goals without
  * anyone having to arrange it.
  *
- * effective_from is the UTC day, matching migration 005 and for the same reason: it
- * is the earliest period, and goalsForDay falls back to the earliest for any day
- * behind it, so a day either way changes nothing.
+ * effective_from is the account's local today: localDay(now, timezone), read back
+ * from the row that was just inserted because timezone has its own column default
+ * and cannot be assumed here. Migration 005 seeds existing accounts' earliest period
+ * from the UTC day instead, and that is fine there for a reason that does not carry
+ * over — a .sql migration cannot resolve an IANA timezone, and being a day out costs
+ * those accounts nothing because goalsForDay falls back to the earliest period for
+ * anything behind it, and their creation days are long past. A new account has no
+ * such cushion: it can be, and normally is, edited the same day it is created, so a
+ * seed dated even one day ahead of local today (which the UTC day is, for roughly
+ * seven evening hours a day in America/Los_Angeles) outranks that edit as the later
+ * period and silently reverts it at midnight. Do not "simplify" this back to the UTC
+ * day to match migration 005 — the two are only allowed to agree by coincidence.
  */
 export async function createUser(db: Db, username: string, password: string): Promise<User> {
   const passwordHash = await hashPassword(password);
@@ -70,8 +80,11 @@ export async function createUser(db: Db, username: string, password: string): Pr
       .run(username, passwordHash, now);
 
     const id = Number(info.lastInsertRowid);
+    const { timezone } = db.prepare('SELECT timezone FROM users WHERE id = ?').get(id) as {
+      timezone: string;
+    };
     putGoalPeriod(db, id, {
-      effective_from: new Date(now).toISOString().slice(0, 10),
+      effective_from: localDay(now, timezone),
       ...DEFAULT_GOALS,
     });
     return id;

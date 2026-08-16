@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { testDb, testApp, loginAs } from './helpers';
 import type { Db } from '../db';
+import { createUser } from '../auth';
 import { listGoalPeriods, putGoalPeriod } from '../store';
 import { localDay, addDays } from '../domain/day';
 import { DEFAULT_GOALS } from '../domain/goals';
@@ -29,6 +30,33 @@ function withHistory(db: Db, userId: number): void {
   db.prepare('DELETE FROM goal_periods WHERE user_id = ?').run(userId);
   putGoalPeriod(db, userId, { effective_from: '2020-01-01', ...DEFAULT_GOALS });
 }
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+describe('createUser', () => {
+  it('seeds a period dated the account local today, never the UTC day ahead of it', async () => {
+    // 05:00 UTC is 22:00 the previous evening in America/Los_Angeles (PDT, and the
+    // default timezone a new account gets) — one of the roughly seven hours a day
+    // where the UTC calendar day and the account's local calendar day disagree.
+    // Freezing the clock here, rather than relying on whatever hour the suite
+    // happens to run in, makes the skew reproduce every time: this fails hard
+    // against a seed dated `new Date(now).toISOString().slice(0, 10)` (the UTC day,
+    // '2026-03-10') and passes only against one dated by localDay (the local day,
+    // '2026-03-09').
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-10T05:00:00Z'));
+
+    const db = testDb();
+    const user = await createUser(db, 'van', 'correct-horse');
+
+    const periods = listGoalPeriods(db, user.id);
+    expect(periods).toHaveLength(1);
+    expect(periods[0].effective_from).toBe(localDay(Date.now(), user.timezone));
+    expect(periods[0].effective_from).toBe('2026-03-09');
+  });
+});
 
 describe('PUT /settings/goals', () => {
   it('rejects an anonymous caller', async () => {
@@ -257,27 +285,11 @@ describe('PUT /settings/goals', () => {
   });
 
   it('on a brand-new account, from_today leaves no history to preserve', async () => {
-    // The obvious way to pin this is to assert listGoalPeriods has length 1: the
-    // account's only period (createUser's seed) and this write should land on the
-    // same day and collapse into one row via the upsert. But the seed is dated in
-    // UTC (new Date(now).toISOString().slice(0, 10)) and this write is dated in the
-    // user's local day (localDay(Date.now(), user.timezone)) — those two strings
-    // only agree for part of the day. For the roughly eight hours from 00:00 UTC to
-    // ~08:00 UTC (LA's previous afternoon and evening) they diverge: the upsert
-    // inserts a second row instead of overwriting the first, and a row-count
-    // assertion here would pass or fail depending on the hour the suite happened to
-    // run. That skew, not the collision itself, is the actual trap.
-    //
-    // The property that holds regardless of the hour is behavioural: a fresh account
-    // has no history to divide, so a day from long before the account existed
-    // reports the *new* numbers too. That is true whether the seed collided with the
-    // write (one row, and the query falls back to it) or landed a day off it (two
-    // rows, and the query falls back to the earlier of the two — which is the row
-    // this write just made, since nothing predates it). Contrast this with
-    // `from_today adds a period and leaves the old one alone`, where withHistory()
-    // gives the account a real past and the same kind of query returns the *old*
-    // numbers instead — the difference is entirely whether there was a history to
-    // preserve, not which row the seed happened to land on.
+    // A fresh account has no history for from_today and correction to divide, so a
+    // day from long before the account existed should report the *new* numbers too
+    // — contrast `from_today adds a period and leaves the old one alone`, where
+    // withHistory() gives the account a real past and the same kind of query
+    // returns the *old* numbers instead.
     const db = testDb();
     const app = testApp(db);
     const { cookie } = await loginAs(app, db, 'van');
