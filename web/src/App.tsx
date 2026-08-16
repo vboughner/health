@@ -102,13 +102,22 @@ export function App() {
     window.scrollTo(0, 0);
   }, [tab, user]);
 
+  // A failed toggle leaves its message on Settings until something clears it. Every
+  // tab switch goes through here rather than setTab directly, so leaving the tab and
+  // coming back never re-shows a stale error for a request that is long past and may
+  // since have succeeded.
+  const changeTab = useCallback((next: Tab) => {
+    setSettingsError('');
+    setTab(next);
+  }, []);
+
   function handleLoggedIn(next: User, nextGoals: Goals) {
     setUser(next);
     setGoals(nextGoals);
     setDate(todayIn(next.timezone));
     // Logging out never unmounts App, so the tab from the last session is still
     // sitting there. A new sign-in starts where the app starts.
-    setTab('today');
+    changeTab('today');
   }
 
   if (checking) {
@@ -136,8 +145,8 @@ export function App() {
             onChangeDate={setDate}
             refreshKey={refreshKey}
             settings={user.features}
-            onReviewGoals={() => setTab('goals')}
-            onOpenSettings={() => setTab('settings')}
+            onReviewGoals={() => changeTab('goals')}
+            onOpenSettings={() => changeTab('settings')}
           />
         )}
         {tab === 'add' && (
@@ -147,7 +156,7 @@ export function App() {
           <Trends
             refreshKey={refreshKey}
             settings={user.features}
-            onOpenSettings={() => setTab('settings')}
+            onOpenSettings={() => changeTab('settings')}
           />
         )}
         {tab === 'settings' && (
@@ -180,7 +189,7 @@ export function App() {
               key={t.id}
               className="tab"
               aria-current={tab === t.id ? 'page' : undefined}
-              onClick={() => setTab(t.id)}
+              onClick={() => changeTab(t.id)}
             >
               <span className="tab-icon">{t.icon}</span>
               {t.label}
