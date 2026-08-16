@@ -1688,6 +1688,25 @@ textarea:focus {
   color: var(--accent);
 }
 
+/* font-size stays at the input/select/textarea default of 16px rather than the
+   smaller size a plain block of text would use — going under it is what makes iOS
+   zoom the viewport on focus, and that rule applies to this box like every other. */
+.plan-editor {
+  width: 100%;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.plan-heading {
+  margin-top: 4px;
+}
+
+.plan-paragraph {
+  margin: 0;
+}
+
 /* Used alongside .stack, which already supplies the column layout — this only
    adds the fade for stepping between days. */
 .day-body {
