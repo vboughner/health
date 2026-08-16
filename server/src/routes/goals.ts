@@ -4,6 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import type { AppOptions } from '../app';
 import {
   MAX_AUDIO_BYTES,
+  MAX_RECORDING_MS,
   normalizeMime,
   extensionFor,
   recordingFilename,
@@ -108,6 +109,12 @@ export function registerGoalRoutes(app: FastifyInstance, opts: AppOptions): void
       const durationMs = Number(request.query.duration_ms);
       if (!Number.isFinite(durationMs) || durationMs <= 0) {
         return reply.code(400).send({ error: 'Expected a positive duration_ms' });
+      }
+      // The recorder already stops a take at MAX_RECORDING_MS, but duration_ms is a
+      // client-supplied query parameter — a claim, not a measurement — and nothing
+      // stops a bad or malformed one arriving here regardless of what the recorder did.
+      if (durationMs > MAX_RECORDING_MS) {
+        return reply.code(400).send({ error: 'Cannot store a recording longer than ten minutes' });
       }
 
       const recordedAt = Date.now();

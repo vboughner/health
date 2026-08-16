@@ -27,7 +27,11 @@ const EXTENSIONS: Record<string, string> = {
  */
 export const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 
-/** Ten minutes. The plan takes about two to read aloud. */
+/**
+ * Ten minutes. The plan takes about two to read aloud. Deliberately the same number as
+ * MAX_RECORDING_MS in web/src/recording.ts — the two packages must not import each
+ * other, so it is written twice on purpose. Change one and change the other.
+ */
 export const MAX_RECORDING_MS = 10 * 60 * 1000;
 
 /**

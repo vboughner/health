@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useRef, useState, type RefObject } from 'react';
-import { api } from '../api';
+import { api, ApiError } from '../api';
 import {
   startRecording,
   saveRecording,
@@ -169,7 +169,14 @@ export function GoalsRecorder({
     } catch (err) {
       // Back to review, not to idle: the take is still in hand and still savable.
       setStage({ name: 'review', take });
-      setError(err instanceof Error ? err.message : 'Could not save that recording');
+      // A 413 is rejected during body parsing, before our own route handler runs, so
+      // the message on it is Fastify's rather than one written for a person who has
+      // just read their goals aloud.
+      if (err instanceof ApiError && err.status === 413) {
+        setError('That recording is too long to store. Try a shorter one.');
+      } else {
+        setError(err instanceof Error ? err.message : 'Could not save that recording');
+      }
     }
   }
 

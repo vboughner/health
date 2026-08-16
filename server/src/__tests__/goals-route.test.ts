@@ -3,7 +3,7 @@ import path from 'path';
 import { describe, it, expect } from 'vitest';
 import { testDb, testApp, testMediaDir, loginAs, type Res } from './helpers';
 import { nullUsdaClient } from '../usda';
-import { MAX_AUDIO_BYTES } from '../domain/recording';
+import { MAX_AUDIO_BYTES, MAX_RECORDING_MS } from '../domain/recording';
 
 /** A small stand-in for a take. The bytes are never decoded, only stored. */
 const AUDIO = Buffer.from('fake-opus-bytes');
@@ -130,6 +130,16 @@ describe('POST /api/goals/recording', () => {
       payload: AUDIO,
     });
     expect(missing.statusCode).toBe(400);
+  });
+
+  it('refuses a duration claim over the length cap', async () => {
+    const { app, mediaDir, van } = await setup();
+
+    const res = await upload(app, van.cookie, AUDIO, 'audio/webm', MAX_RECORDING_MS + 1);
+
+    expect(res.statusCode).toBe(400);
+    // Nothing was written: the claim was rejected before any file was touched.
+    expect(fs.readdirSync(mediaDir)).toHaveLength(0);
   });
 
   it('refuses a recording over the size cap', async () => {
