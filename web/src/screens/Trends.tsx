@@ -13,8 +13,8 @@ interface TrendDay {
   window_compliant: boolean | null;
   // Null on days with nothing recorded at all — drawn as a blank cell, not a miss.
   goals_reviewed: boolean | null;
-  // The goal in force on this day (Task 2) — not necessarily today's, on a range
-  // spanning a change.
+  // The goal in force on this day — not necessarily today's, on a range spanning a
+  // change.
   budget: number;
 }
 

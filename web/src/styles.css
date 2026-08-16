@@ -936,8 +936,14 @@ textarea:focus {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-faint);
-  /* Only takes effect inside a .field-row, where it shares the line with an
-     input and needs to claim the leading space rather than hug its own text. */
+}
+
+/* .field-row is a row (label, input and unit sharing one line), and its label needs
+   to claim the leading space rather than hug its own text. .field is a column
+   (label above input, AddFood's manual-food serving grid) and is also a flex
+   container, so this must stay scoped to .field-row — an unscoped flex: 1 on
+   .field-label turns every label there into a flex item with flex-basis: 0 too. */
+.field-row .field-label {
   flex: 1;
 }
 
