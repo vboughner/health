@@ -36,12 +36,34 @@ computes `days_under_budget` against the live figure — and of the burn target.
 So a `goal_periods` table holds the four numbers with an `effective_from` day, and every
 rollup asks what the goals were on the day it is reporting on.
 
-**Editing asks which of the two you meant.** Save offers `from_today` — insert a period
-starting today, leaving history alone — and `correction`, which updates **the period
-covering today, in place**. Not all of history: a typo fixed in October must not silently
-undo a real change made in September. When you have never changed anything there is only
-one period, so a correction rewrites everything, which is exactly what fixing a typo
-should do.
+**Editing asks which of the two you meant.** Save offers `from_today` — a period starting
+today, leaving history alone — and `correction`, which updates **the period covering
+today, in place**. Not all of history: a typo fixed in October must not silently undo a
+real change made in September. When you have never changed anything there is only one
+period, so a correction rewrites everything, which is exactly what fixing a typo should
+do.
+
+`from_today` is an upsert, not an insert — the unique index would otherwise reject a
+second edit on the same day. Which means the two scopes **converge once you have already
+edited today**: the period covering today is the one starting today, so both write the
+same row. Nothing needs to special-case that, but it is worth knowing before it looks like
+a bug.
+
+**A range can span more than one set of goals, and the Trends chart has to admit it.**
+`CalorieChart` takes a single scalar `budget` today and uses it three ways: the reference
+line, the axis `include`, and the over/under colour on every bar at `charts.tsx:213`. Once
+`days_under_budget` is counted per day, a flat line drawn at *today's* budget would colour
+bars by one rule while the caption beneath counts them by another — "18 of 30 logged days
+at or under budget" sitting under a chart that reds a different 12. That is the kind of
+quiet contradiction this app is otherwise careful about.
+
+So the day rows carry their own `budget`, the reference line becomes a stepped polyline,
+and each bar is coloured against the budget of its own day. In the common case — goals
+unchanged across the range — the polyline is flat and nothing looks any different.
+
+The `burn_target` tile stays a single figure, today's. It compares an average across the
+whole range to what you are aiming at *now*, which is what that tile has always meant; a
+stepped target for an averaged number would not mean anything more precise.
 
 **The four goal columns come off `users` entirely.** `goal_periods` is the only store;
 "current goals" is the period covering today. Keeping the columns as a live copy beside a
@@ -69,13 +91,20 @@ after the upgrade silently wins any disagreement. Five checkboxes take seconds t
 once, forever.
 
 **The plan is markdown, rendered from a small fixed subset.** `##` headings, `-` bullets,
-blank-line paragraphs, `**bold**`. Anything else renders as plain text. This is
-formatting, not interpretation: the app never reads meaning out of your plan, and in
-particular never tries to extract the numbers from it. The budget you are measured
+blank-line paragraphs. Nothing else — no bold, no links, no images. Anything unrecognised
+renders as the plain text it is.
+
+Dropping inline formatting is what keeps this small: with no spans to parse, `renderPlan`
+is a line classifier and a grouping pass, and a block is a string rather than a tree.
+Bold would roughly double both the renderer and its tests to buy emphasis in a document
+one person reads to themselves. The plan it replaces uses none.
+
+This is formatting, not interpretation: the app never reads meaning out of your plan, and
+in particular never tries to extract the numbers from it. The budget you are measured
 against is the one in Settings, and writing "2400" in your plan does nothing.
 
-Rendered to **React elements, never `dangerouslySetInnerHTML`**. No links and no images,
-which keeps the entire question of what a plan is allowed to inject from arising.
+Rendered to **React elements, never `dangerouslySetInnerHTML`**. With no links or images
+in the subset, the question of what a plan is allowed to inject never arises.
 
 **A new account starts with no plan at all.** The Goals tab shows a short card with a
 Write button, and the editor opens blank with placeholder text demonstrating `##` and
@@ -182,14 +211,17 @@ ALTER TABLE exercise_log  DROP COLUMN note;
 ALTER TABLE exercise_log  DROP COLUMN source;
 ```
 
-Plus an `UPDATE users SET plan_md = '<today''s plan>' WHERE plan_md = ''`, carrying the
-current hardcoded `PLAN` across as markdown. On a fresh database there are no users and it
-is a no-op.
+Plus an `UPDATE users SET plan_md = ...` carrying the current hardcoded `PLAN` across as
+markdown, with the text inlined in the migration. It applies to every account existing at
+migration time, which is one; on a fresh database there are none and it is a no-op.
+Accounts created afterwards get the `''` default and the empty state.
 
 ## Server
 
 **`src/domain/goals.ts`** — pure, tested without a database or a server:
 
+- `DEFAULT_GOALS` — 2400 / 960 / `09:00` / `19:00`. These were column defaults in
+  migration 001; with the columns gone they need a home in code, and this is it.
 - `validateGoals(input)` — budget 500–10000, burn target 0–5000, `HH:MM` well-formed,
   `window_start < window_end`. No midnight crossing; `domain/day.ts` already assumes that
   and this is where it gets said out loud.
@@ -202,16 +234,28 @@ is a no-op.
 - `PUT /settings/features` — the five booleans.
 - `GET /settings/plan`, `PUT /settings/plan`.
 
-**`GET /auth/me`** grows `goals` (today's period) and `features`. The web already fetches
-it at boot, so settings need no extra request and no loading state. Plan text stays out of
-it — only the Goals tab wants it, and it is the one field that can be long.
+**`auth.ts`'s `User` gains the five feature booleans and nothing else.** This matters more
+than it looks: `getSessionUser` calls `getUserById` on **every authenticated request**, so
+whatever `User` carries is read on every request. The features are five integers on a row
+already being fetched, so they are free. Goals are not — they are a second table and would
+add a query per request to serve one route. Plan text is not either; it is the one field
+that can run to kilobytes.
 
-**`summary.ts` and `trends.ts`** stop reading `user.*` and call `goalsForDay` for each day
-they report on, `days_under_budget` included. `store.ts` owns all the SQL as ever, and
-gains the period read/write, the feature read/write, and the plan read/write.
+So `request.user` stays narrow, and:
 
-**`create-user`** seeds an initial `goal_periods` row alongside the user, since the
-defaults no longer live in a column default.
+**`GET /auth/me`** composes `goals` (today's period) on top of the user it already has.
+The web fetches it at boot, so settings need no extra request and no loading state. The
+plan gets its own `GET /settings/plan`, fetched by the Goals tab that wants it.
+
+**`summary.ts` and `trends.ts`** stop reading `user.*`, load the user's periods once, and
+call `goalsForDay` per day they report on — `days_under_budget` and the per-day `budget`
+on each trends row included. `store.ts` owns all the SQL as ever, and gains the period
+read/write, the feature write, and the plan read/write.
+
+**`auth.ts`'s `createUser` seeds the initial `goal_periods` row** from `DEFAULT_GOALS`,
+inside the same transaction as the user insert. Not the `create-user` script: `createUser`
+is what the test helpers call too (`__tests__/helpers.ts:94`), so putting it here means
+every account in every test has goals without anyone arranging it.
 
 **`seed-demo`** stops writing `no_meat` / `no_dairy` and stops fabricating measured
 exercise rows. It does not need to write goal periods — `create-user` has already made
@@ -220,7 +264,11 @@ one, and the fallback rule covers the six weeks it backdates.
 ## Web
 
 **`markdown.ts`** — pure `renderPlan(md)` returning typed blocks (`heading` / `bullets` /
-`paragraph`, with `**bold**` inline), tested the way the domain functions are.
+`paragraph`), each carrying plain strings, tested the way the domain functions are.
+
+**`components/charts.tsx`** — `CalorieChart` takes a budget per point instead of one
+scalar: the reference line becomes a stepped polyline, `scale.include` covers every budget
+in the range rather than one, and each bar compares against its own day's.
 
 **`settings.ts`** keeps `Settings`, `FEATURES` and `nothingTracked` exactly as they are.
 `readSettings` / `writeSettings` go, replaced by a one-shot `clearLegacySettings()` that
@@ -247,11 +295,19 @@ The load-bearing one: **a day before an edit keeps its old verdict under `from_t
 changes under `correction`.** That is the whole reason `goal_periods` exists, and it is
 the regression that would otherwise be invisible until September.
 
-Beyond that: `goalsForDay`'s fallback and boundary days; `validateGoals` at each range
-edge and on a backwards window; features round-trip; plan round-trip; a second account
-unable to read or write the first's goals, features or plan through any of the three new
-routes; the markdown renderer as a pure function, including that unsupported syntax comes
-out as text; and the optimistic-rollback path restoring a toggle when the `PUT` fails.
+Close behind it: **a trends range spanning a budget change reports each day against its
+own budget**, so `days_under_budget` and the per-row figure the chart colours by cannot
+drift apart.
+
+Beyond those: `goalsForDay`'s fallback and boundary days; `validateGoals` at each range
+edge and on a backwards window; the two scopes converging when a period already starts
+today; features round-trip; plan round-trip; a second account unable to read or write the
+first's goals, features or plan through any of the new routes; the markdown renderer as a
+pure function, including that unsupported syntax comes out as text; and the
+optimistic-rollback path restoring a toggle when the `PUT` fails.
+
+`auth.test.ts:117` asserts `daily_kcal_budget` on the `/auth/me` payload and moves to the
+new shape.
 
 `settings.test.ts` loses its `localStorage` cases and keeps the `nothingTracked` ones,
 including the test that `FEATURES` covers every key — that guard matters more now, not
@@ -270,5 +326,8 @@ CLAUDE.md needs more than a touch-up:
   which kind of change you meant; settings need the network and do not queue.
 - The `no_meat` / `no_dairy` note under "Data model notes" goes away with the columns.
 
-`docs/design.md` mentions the dropped columns in its schema sketch and needs the same
-pass.
+`docs/design.md` needs the same pass in more places than the schema sketch: line 5 opens
+by making the vault note the premise of the whole project, lines 68–69 list the four goal
+columns, line 80 lists `source` and `note`, line 82 lists `no_meat` / `no_dairy` / `note`,
+line 108 describes the Goals tab as showing "The Plan" from the vault note, and line 177
+says the note stays the source of truth for the goals.
