@@ -33,9 +33,47 @@ Verify: `dig @1.1.1.1 health.hovercloud.com +short`
 
 ### 2. Clone and build
 
+The VPS came with node, npm, pm2, git, gh and certbot from the griljor setup, but not
+with a C++ toolchain or the `sqlite3` CLI. Both are needed here:
+
 ```sh
-ssh griljor@5.78.75.71
-git clone https://github.com/vboughner/health.git ~/health
+sudo apt-get update && sudo apt-get install -y build-essential sqlite3
+```
+
+`better-sqlite3` publishes no prebuilt binary for node 24 on linux/x64, so `npm install`
+falls back to compiling it with node-gyp — which fails with a bare `not found: make` on
+a box that has never built a native module. `sqlite3` is for the nightly backup in
+step 8; the app itself never needs it, since it talks to the database through
+`better-sqlite3`.
+
+> Because that module is compiled against node 24's ABI, upgrading node on this VPS
+> means running `npm rebuild better-sqlite3` (or a fresh `npm install`) afterwards, or
+> the app won't start — it fails with a `NODE_MODULE_VERSION` mismatch, not with
+> anything that mentions node.
+
+**The repo is private**, so an HTTPS clone has nothing to authenticate with. Use a
+read-only deploy key rather than `gh auth login`: it is scoped to this one repo, cannot
+push, and keeps working for `git pull` on every future update with no token to expire.
+On the VPS:
+
+```sh
+ssh-keygen -t ed25519 -C "griljor-vps-health" -f ~/.ssh/id_ed25519_health -N ""
+cat >> ~/.ssh/config <<'EOF'
+
+Host github.com
+    IdentityFile ~/.ssh/id_ed25519_health
+    IdentitiesOnly yes
+EOF
+chmod 600 ~/.ssh/config
+cat ~/.ssh/id_ed25519_health.pub
+```
+
+Add that public key at GitHub → the `health` repo → Settings → Deploy keys, **without**
+write access (or `gh repo deploy-key add key.pub --title griljor-vps -R vboughner/health`
+from the Mac). Then:
+
+```sh
+git clone git@github.com:vboughner/health.git ~/health
 mkdir -p ~/health-data/backups
 
 cd ~/health/server && npm install && npm run build
@@ -57,6 +95,11 @@ chmod 600 ~/health-data/.env
 ```
 
 ### 4. nginx
+
+Worth doing step 6 before this one: start the app under PM2 and confirm
+`curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4300/api/auth/me` returns 401.
+That separates "the app doesn't run" from "the proxy is wrong", which otherwise both
+present as a 502 once nginx is in front.
 
 Create `/etc/nginx/sites-available/health` (HTTP only — certbot adds the SSL lines itself):
 
@@ -144,12 +187,9 @@ both — see `scripts/backup.sh`. A `.backup` of `app.db` alone would look compl
 and quietly lose every recording.
 
 `scripts/backup.sh` shells out to the `sqlite3` CLI, which nothing else on this VPS
-installs — the app itself never needs it, since the server talks to the database
-through `better-sqlite3`, a compiled Node module rather than the command-line tool:
-
-```sh
-sudo apt-get install -y sqlite3
-```
+installs and which the app itself never needs — the server talks to the database
+through `better-sqlite3`, a compiled Node module rather than the command-line tool.
+Step 2 installs it.
 
 ```sh
 crontab -e

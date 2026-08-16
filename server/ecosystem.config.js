@@ -21,6 +21,13 @@ module.exports = {
       max_memory_restart: '300M',
       // The database is SQLite in WAL mode — a second process writing the same
       // file would be asking for trouble. One instance only.
+      //
+      // exec_mode is explicit because PM2's default is 'fork' only while `instances`
+      // is unset; setting it flips the default to 'cluster'. The first deploy came up
+      // in cluster mode for exactly that reason — harmless at one instance, but it
+      // makes `pm2 scale health 2` a working command rather than an impossible one,
+      // which is the thing this comment exists to prevent.
+      exec_mode: 'fork',
       instances: 1,
     },
   ],
