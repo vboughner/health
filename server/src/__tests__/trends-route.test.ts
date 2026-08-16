@@ -96,16 +96,19 @@ describe('GET /api/trends', () => {
   });
 
   it('marks a day with only exercise as unreviewed rather than unknown', async () => {
+    // A weight on file is required to log exercise now. Set it on an earlier day so
+    // the day under test still carries nothing but the exercise itself.
+    await put(`/api/day/${daysAgo(2)}`, { weight_lb: 195 });
     await post('/api/log/exercise', {
       activity: 'running',
       minutes: 30,
-      kcal: 300,
       date: daysAgo(1),
     });
 
     const rows = (await get('/api/trends?days=7')).json().days;
     const row = rows.find((d: { day: string }) => d.day === daysAgo(1));
 
+    expect(row.weight_lb).toBeNull();
     expect(row.goals_reviewed).toBe(false);
   });
 
@@ -222,9 +225,10 @@ describe('GET /api/trends', () => {
 
   it('averages burned calories over the days with exercise', async () => {
     await put(`/api/day/${today}`, { weight_lb: 195 });
-    await post('/api/log/exercise', { activity: 'running', minutes: 30, kcal: 500, date: today });
+    await post('/api/log/exercise', { activity: 'running', minutes: 30, date: today });
 
-    expect((await get('/api/trends?days=7')).json().summary.avg_burned).toBe(500);
+    // 195 lb, 30 min running: the same MET estimate exercised elsewhere.
+    expect((await get('/api/trends?days=7')).json().summary.avg_burned).toBe(455);
   });
 
   it('reports nulls rather than zeros for averages with no data', async () => {

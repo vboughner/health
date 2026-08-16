@@ -2,7 +2,6 @@ import type { FastifyInstance } from 'fastify';
 import type { AppOptions } from '../app';
 import { localDay, addDays, eatingWindow, sleepHours } from '../domain/day';
 import { sumNutrition, macroSplit } from '../domain/nutrition';
-import { summarizeBurn } from '../domain/exercise';
 import { goalsForDay } from '../domain/goals';
 import { listFoodLog, listExercise, getDailyEntry, listGoalPeriods } from '../store';
 
@@ -36,7 +35,7 @@ export function registerSummaryRoutes(app: FastifyInstance, opts: AppOptions): v
       const goals = goalsForDay(listGoalPeriods(opts.db, user.id), date);
 
       const totals = sumNutrition(foods);
-      const burn = summarizeBurn(exercise);
+      const burned = Math.round(exercise.reduce((sum, e) => sum + e.kcal, 0));
       const window = eatingWindow(
         foods.map((f) => f.eaten_at),
         user.timezone,
@@ -55,7 +54,7 @@ export function registerSummaryRoutes(app: FastifyInstance, opts: AppOptions): v
         },
         exercise: {
           entries: exercise,
-          ...burn,
+          total: burned,
           target: goals.burn_target,
         },
         window: {

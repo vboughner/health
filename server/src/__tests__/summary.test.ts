@@ -58,9 +58,6 @@ describe('daily entry and summary', () => {
         sleep_start: null,
         sleep_end: null,
         goals_reviewed: false,
-        no_meat: false,
-        no_dairy: false,
-        note: null,
       });
     });
 
@@ -70,23 +67,15 @@ describe('daily entry and summary', () => {
     });
 
     it('marks the goals reviewed without disturbing anything else', async () => {
-      await put(`/api/day/${DAY}`, { weight_lb: 194.5, no_meat: true });
+      await put(`/api/day/${DAY}`, { weight_lb: 194.5 });
       await put(`/api/day/${DAY}`, { goals_reviewed: true });
 
       const day = (await get(`/api/day/${DAY}`)).json().day;
 
       expect(day).toMatchObject({
         weight_lb: 194.5,
-        no_meat: true,
         goals_reviewed: true,
       });
-    });
-
-    it('can untick a box', async () => {
-      await put(`/api/day/${DAY}`, { no_meat: true });
-      await put(`/api/day/${DAY}`, { no_meat: false });
-
-      expect((await get(`/api/day/${DAY}`)).json().day.no_meat).toBe(false);
     });
 
     it("pairs last night's bedtime with this morning's wake time", async () => {
@@ -142,18 +131,7 @@ describe('daily entry and summary', () => {
       });
 
       expect(res.statusCode).toBe(201);
-      expect(res.json().entry).toMatchObject({ kcal: 455, source: 'estimated' });
-    });
-
-    it('lets a watch reading override the estimate and marks it measured', async () => {
-      const res = await post('/api/log/exercise', {
-        activity: 'running',
-        minutes: 30,
-        kcal: 512,
-        date: DAY,
-      });
-
-      expect(res.json().entry).toMatchObject({ kcal: 512, source: 'measured' });
+      expect(res.json().entry).toMatchObject({ kcal: 455 });
     });
 
     it('uses the most recent weight on or before the day, not a later one', async () => {
@@ -169,7 +147,7 @@ describe('daily entry and summary', () => {
       expect(res.json().entry.kcal).toBe(455);
     });
 
-    it('asks for a weight when there is none and no watch number', async () => {
+    it('asks for a weight when there is none on file', async () => {
       const fresh = await loginAs(app, db, 'no-weight-yet');
 
       const res = await app.inject({
@@ -181,19 +159,6 @@ describe('daily entry and summary', () => {
 
       expect(res.statusCode).toBe(400);
       expect(res.json().error).toMatch(/weight/i);
-    });
-
-    it('accepts a watch number with no weight on record', async () => {
-      const fresh = await loginAs(app, db, 'watch-only');
-
-      const res = await app.inject({
-        method: 'POST',
-        url: '/api/log/exercise',
-        payload: { activity: 'running', minutes: 30, kcal: 500, date: DAY },
-        headers: { cookie: fresh.cookie },
-      });
-
-      expect(res.statusCode).toBe(201);
     });
 
     it('rejects an unknown activity', async () => {
@@ -252,7 +217,6 @@ describe('daily entry and summary', () => {
       });
       await put(`/api/day/${DAY}`, {
         weight_lb: 195,
-        no_meat: true,
         goals_reviewed: true,
         sleep_end: Date.parse(`${DAY}T06:30:00-08:00`),
       });
@@ -267,7 +231,7 @@ describe('daily entry and summary', () => {
       expect(s.exercise.total).toBe(455);
       expect(s.exercise.target).toBe(960);
       expect(s.window).toMatchObject({ first: '09:30', last: '18:00', compliant: true });
-      expect(s.day).toMatchObject({ weight_lb: 195, no_meat: true, sleep_hours: 8 });
+      expect(s.day).toMatchObject({ weight_lb: 195, sleep_hours: 8 });
     });
 
     it('derives the eating window from the food log rather than asking', async () => {
@@ -315,23 +279,6 @@ describe('daily entry and summary', () => {
     it('rejects a malformed date', async () => {
       expect((await get('/api/summary/yesterday')).statusCode).toBe(400);
     });
-
-    it('separates measured burn from estimated', async () => {
-      await put(`/api/day/${DAY}`, { weight_lb: 195 });
-      await post('/api/log/exercise', { activity: 'running', minutes: 30, date: DAY });
-      await post('/api/log/exercise', {
-        activity: 'climbing',
-        minutes: 60,
-        kcal: 700,
-        date: DAY,
-      });
-
-      const s = await summary();
-
-      expect(s.exercise.estimated).toBe(455);
-      expect(s.exercise.measured).toBe(700);
-      expect(s.exercise.total).toBe(1155);
-    });
   });
 
   describe('access control', () => {
@@ -348,7 +295,7 @@ describe('daily entry and summary', () => {
     });
 
     it("does not leak one user's day into another's", async () => {
-      await put(`/api/day/${DAY}`, { weight_lb: 195, note: 'private' });
+      await put(`/api/day/${DAY}`, { weight_lb: 195 });
 
       const other = await loginAs(app, db, 'someone-else');
 
@@ -359,7 +306,6 @@ describe('daily entry and summary', () => {
       });
 
       expect(res.json().day.weight_lb).toBeNull();
-      expect(res.json().day.note).toBeNull();
     });
 
     it("does not let one user delete another's exercise entry", async () => {
@@ -396,6 +342,49 @@ describe('daily entry and summary', () => {
 
       expect(res.statusCode).toBe(400);
     });
+  });
+});
+
+describe('dropped fields', () => {
+  it('does not report a day with fields nothing writes', async () => {
+    const db = testDb();
+    const app = testApp(db);
+    const { cookie } = await loginAs(app, db, 'van');
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/summary/${DAY}`,
+      headers: { cookie },
+    });
+    const body = res.json();
+
+    for (const gone of ['no_meat', 'no_dairy', 'note']) {
+      expect(body.day).not.toHaveProperty(gone);
+    }
+    for (const gone of ['estimated', 'measured', 'measuredShare']) {
+      expect(body.exercise).not.toHaveProperty(gone);
+    }
+
+    await app.close();
+  });
+
+  it('ignores a patch naming a field that no longer exists', async () => {
+    const db = testDb();
+    const app = testApp(db);
+    const { cookie } = await loginAs(app, db, 'van');
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/api/day/${DAY}`,
+      headers: { cookie },
+      payload: { weight_lb: 194.5, no_meat: true },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().day.weight_lb).toBe(194.5);
+    expect(res.json().day).not.toHaveProperty('no_meat');
+
+    await app.close();
   });
 });
 

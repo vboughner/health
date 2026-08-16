@@ -333,8 +333,6 @@ export interface ExerciseEntry {
   activity: string;
   minutes: number;
   kcal: number;
-  source: 'estimated' | 'measured';
-  note: string | null;
 }
 
 export type NewExercise = Omit<ExerciseEntry, 'id'>;
@@ -342,19 +340,10 @@ export type NewExercise = Omit<ExerciseEntry, 'id'>;
 export function insertExercise(db: Db, userId: number, entry: NewExercise): number {
   const info = db
     .prepare(
-      `INSERT INTO exercise_log (user_id, local_day, logged_at, activity, minutes, kcal, source, note)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO exercise_log (user_id, local_day, logged_at, activity, minutes, kcal)
+       VALUES (?, ?, ?, ?, ?, ?)`,
     )
-    .run(
-      userId,
-      entry.local_day,
-      entry.logged_at,
-      entry.activity,
-      entry.minutes,
-      entry.kcal,
-      entry.source,
-      entry.note,
-    );
+    .run(userId, entry.local_day, entry.logged_at, entry.activity, entry.minutes, entry.kcal);
 
   return Number(info.lastInsertRowid);
 }
@@ -362,7 +351,7 @@ export function insertExercise(db: Db, userId: number, entry: NewExercise): numb
 export function listExercise(db: Db, userId: number, localDay: string): ExerciseEntry[] {
   return db
     .prepare(
-      `SELECT id, local_day, logged_at, activity, minutes, kcal, source, note
+      `SELECT id, local_day, logged_at, activity, minutes, kcal
        FROM exercise_log
        WHERE user_id = ? AND local_day = ?
        ORDER BY logged_at`,
@@ -384,24 +373,13 @@ export interface DailyEntry {
   sleep_start: number | null;
   sleep_end: number | null;
   goals_reviewed: boolean;
-  no_meat: boolean;
-  no_dairy: boolean;
-  note: string | null;
 }
 
 export type DailyEntryPatch = Partial<Omit<DailyEntry, 'local_day'>>;
 
-const DAILY_FIELDS = [
-  'weight_lb',
-  'sleep_start',
-  'sleep_end',
-  'goals_reviewed',
-  'no_meat',
-  'no_dairy',
-  'note',
-] as const;
+const DAILY_FIELDS = ['weight_lb', 'sleep_start', 'sleep_end', 'goals_reviewed'] as const;
 
-const BOOLEAN_FIELDS = new Set(['goals_reviewed', 'no_meat', 'no_dairy']);
+const BOOLEAN_FIELDS = new Set(['goals_reviewed']);
 
 interface DailyRow {
   local_day: string;
@@ -409,17 +387,13 @@ interface DailyRow {
   sleep_start: number | null;
   sleep_end: number | null;
   goals_reviewed: number;
-  no_meat: number;
-  no_dairy: number;
-  note: string | null;
 }
 
 /** An untouched day reads as all-blank rather than absent, so callers need no branch. */
 export function getDailyEntry(db: Db, userId: number, localDay: string): DailyEntry {
   const row = db
     .prepare(
-      `SELECT local_day, weight_lb, sleep_start, sleep_end, goals_reviewed,
-              no_meat, no_dairy, note
+      `SELECT local_day, weight_lb, sleep_start, sleep_end, goals_reviewed
        FROM daily_entries WHERE user_id = ? AND local_day = ?`,
     )
     .get(userId, localDay) as DailyRow | undefined;
@@ -431,18 +405,10 @@ export function getDailyEntry(db: Db, userId: number, localDay: string): DailyEn
       sleep_start: null,
       sleep_end: null,
       goals_reviewed: false,
-      no_meat: false,
-      no_dairy: false,
-      note: null,
     };
   }
 
-  return {
-    ...row,
-    goals_reviewed: !!row.goals_reviewed,
-    no_meat: !!row.no_meat,
-    no_dairy: !!row.no_dairy,
-  };
+  return { ...row, goals_reviewed: !!row.goals_reviewed };
 }
 
 /**
@@ -548,20 +514,14 @@ export function dailyEntriesInRange(
 ): DailyEntry[] {
   const rows = db
     .prepare(
-      `SELECT local_day, weight_lb, sleep_start, sleep_end, goals_reviewed,
-              no_meat, no_dairy, note
+      `SELECT local_day, weight_lb, sleep_start, sleep_end, goals_reviewed
        FROM daily_entries
        WHERE user_id = ? AND local_day BETWEEN ? AND ?
        ORDER BY local_day`,
     )
     .all(userId, from, to) as DailyRow[];
 
-  return rows.map((row) => ({
-    ...row,
-    goals_reviewed: !!row.goals_reviewed,
-    no_meat: !!row.no_meat,
-    no_dairy: !!row.no_dairy,
-  }));
+  return rows.map((row) => ({ ...row, goals_reviewed: !!row.goals_reviewed }));
 }
 
 export interface GoalRecording {
