@@ -150,11 +150,19 @@ silently. On the Mac, `localhost:5174` counts as secure and can be used to test 
 - Tests required for bug fixes (a regression test that fails before, passes after) and
   for new domain functions. Route changes get an integration test via Fastify
   `app.inject()` against an in-memory database. ~300 tests total.
-- **Server tests are type-checked** via `server/tsconfig.test.json`, wired into
-  `npm test`. The build config excludes `__tests__` so they are never emitted, which
-  also meant nothing checked them — and a test kept writing a column that had been
-  dropped two commits earlier, passing the whole time. Note that `exclude` is inherited
-  through `extends` and `include` alone does not override it.
+- **Both packages type-check their tests**, and each `npm test` runs `tsc` before
+  vitest, so a test that does not compile fails the suite rather than passing quietly.
+  The two do it differently because their build configs differ:
+  - `server/` needs its own `tsconfig.test.json`. The build config excludes
+    `__tests__` so they are never emitted, which also meant nothing checked them —
+    and a test kept writing a column that had been dropped two commits earlier,
+    passing the whole time. Note that `exclude` is inherited through `extends` and
+    `include` alone does not override it.
+  - `web/` needs no second config: its `tsconfig.json` says `include: ["src"]`, which
+    already covers `src/__tests__`. Only the wiring was missing — `npm test` was a
+    bare `vitest run`, so for a while the web half of `npm run check` did no
+    type-checking at all and a type error passed `check` and failed `build`. Both
+    scripts now run `tsc --noEmit`.
 - Secrets live in `.env` locally (gitignored) and PM2 env in production. Never commit a
   key or the database.
 

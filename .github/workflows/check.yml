@@ -1,0 +1,70 @@
+# Runs the same checks a pull request is expected to have passed locally.
+#
+# Deliberately the repo's own scripts rather than a hand-written list of commands:
+# `npm run check` and `npm run build` are what the README and CLAUDE.md tell a human to
+# run, so CI cannot drift into testing something different from what is documented.
+name: check
+
+on:
+  pull_request:
+  # Also on main, so a branch that was green before merging but conflicts semantically
+  # with something else that landed does not sit broken and unnoticed.
+  push:
+    branches: [main]
+
+# A new push supersedes the run already in flight for the same branch.
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          # Node 22 LTS, not the 24 this is developed on, and not by preference.
+          #
+          # better-sqlite3 ships prebuilt binaries per Node ABI and 11.10 has none for
+          # Node 24, so on 24 it compiles from source — and the binary that produces
+          # crashes the vitest worker on Linux during teardown, an assertion failure in
+          # Statement's destructor calling node::RemoveEnvironmentCleanupHook with a
+          # null environment. The suite never reaches a verdict. macOS on Node 24 is
+          # unaffected, which is why local runs are green.
+          #
+          # An LTS is the better target anyway: it is what the VPS will run. If Node is
+          # ever pinned for this project, pin it to what this line says.
+          node-version: '22'
+          cache: npm
+          # There is no lockfile at the root: the root package.json only aggregates
+          # scripts and has no dependencies of its own. The two real ones are here.
+          cache-dependency-path: |
+            server/package-lock.json
+            web/package-lock.json
+
+      # `npm ci` per package, not `npm install`: it installs exactly what the lockfile
+      # says and fails if the lockfile and package.json disagree, which is the whole
+      # point of running this on someone else's machine.
+      - name: Install server dependencies
+        run: npm ci --prefix server
+
+      - name: Install web dependencies
+        run: npm ci --prefix web
+
+      # Tests, lint and format check, both packages. The test suites never touch the
+      # network — USDA is behind an interface and the tests pass a fake — so this needs
+      # no secrets and cannot fail because an external API is down.
+      - name: Check
+        run: npm run check
+
+      # Build as well, because it catches things the tests do not: the server's tsc
+      # emit and its migration-copy verification, and the web bundle. A type error that
+      # only surfaces at build time is exactly the failure this repo has hit before.
+      - name: Build
+        run: npm run build
