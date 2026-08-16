@@ -17,17 +17,40 @@ function heightsIn(path: string): Set<string> {
   );
 }
 
+/**
+ * The path's anchor points in order, as [x, y] pairs. Unlike `heightsIn`, this
+ * keeps each anchor's x, which is what tells a step from a slope: a diagonal from
+ * (0, -3000) to (100, -2000) visits the same two heights as a step does, but only
+ * a step has two anchors sharing one x with different y — the riser.
+ */
+function anchorsIn(path: string): [string, string][] {
+  const tokens = path.trim().split(/\s+/);
+  const anchors: [string, string][] = [];
+  for (let i = 0; i < tokens.length; i += 3) {
+    anchors.push([tokens[i + 1], tokens[i + 2]]);
+  }
+  return anchors;
+}
+
 describe('stepPath', () => {
   it('stays at one height when the budget never changes', () => {
     const d = stepPath([{ budget: 2400 }, { budget: 2400 }, { budget: 2400 }], geom, 0, 100);
     expect(heightsIn(d)).toEqual(new Set(['-2400']));
   });
 
-  it('visits both heights when the budget changes', () => {
+  it('places the riser at the midpoint between differing days', () => {
     // The change happens at one x rather than sloping across the gap — the budget
-    // was one number and then another, never anything in between.
+    // was one number and then another, never anything in between. Pinning the full
+    // anchor sequence (not just which heights appear) is what catches a regression
+    // to a plain diagonal: that would visit the same two heights but never produce
+    // two anchors at the same x.
     const d = stepPath([{ budget: 3000 }, { budget: 2000 }], geom, 0, 100);
-    expect(heightsIn(d)).toEqual(new Set(['-3000', '-2000']));
+    expect(anchorsIn(d)).toEqual([
+      ['0', '-3000'],
+      ['5', '-3000'],
+      ['5', '-2000'],
+      ['100', '-2000'],
+    ]);
   });
 
   it('spans the full plot width', () => {
