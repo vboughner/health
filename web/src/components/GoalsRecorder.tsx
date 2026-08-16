@@ -143,8 +143,20 @@ export function GoalsRecorder({
   async function finish(recorder: Recorder) {
     if (finishing.current) return;
     finishing.current = true;
-    const take = await recorder.stop();
-    setStage({ name: 'review', take });
+    try {
+      const take = await recorder.stop();
+      setStage({ name: 'review', take });
+    } catch {
+      // stop() rejecting means the recorder's 'stop' event never fired, so the
+      // release() that normally follows it never ran either — the microphone is
+      // still open at this point. cancel() is written to tolerate an already-stopped
+      // recorder and always releases the stream, which a plain state reset would not.
+      recorder.cancel();
+      setStage({ name: 'idle' });
+      setError('The recording was interrupted and will need to be made again.');
+    } finally {
+      finishing.current = false;
+    }
   }
 
   async function save(take: Take) {
