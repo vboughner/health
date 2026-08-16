@@ -178,6 +178,12 @@ function main() {
     process.exit(1);
   }
 
+  // Same reason as create-user: run without ENV_FILE and DB_PATH silently falls back
+  // to <repo>/data/app.db. Note that the guard above only protects the real database
+  // when the env file is loaded, since that is where NODE_ENV=production is set —
+  // reaching production data here means having read this path and gone ahead.
+  console.log(`Database: ${config.dbPath}`);
+
   const db = openDatabase(config.dbPath);
   const user = db.prepare('SELECT id, timezone FROM users WHERE username = ?').get(username) as
     { id: number; timezone: string } | undefined;

@@ -5,7 +5,16 @@
  *
  * Prompts for the password twice with echo off. There is no signup page — accounts
  * are made here on purpose, so the public app has nothing to sign up against.
+ *
+ * On the VPS, pass the env file — PM2 supplies ENV_FILE to the server process and
+ * nothing supplies it to a shell:
+ *
+ *   ENV_FILE=/home/griljor/health-data/.env npm run create-user -- van
+ *
+ * Without it DB_PATH falls back to <repo>/data/app.db, and the account lands in a
+ * second database the server never opens. See the banner below.
  */
+import fs from 'fs';
 import readline from 'readline';
 import { Writable } from 'stream';
 import { config } from '../config';
@@ -44,6 +53,17 @@ async function main() {
     console.error('Usage: npm run create-user -- <username>');
     process.exit(1);
   }
+
+  // Printed before the prompt, not after. On the first deploy this ran without
+  // ENV_FILE, so DB_PATH fell back to <repo>/data/app.db: it created a whole second
+  // database, migrated it, and reported success — and the account did not exist as
+  // far as the running server was concerned. The path was in the closing line all
+  // along, where it was read as confirmation rather than as a warning. A database
+  // that does not exist yet is the loudest form of that mistake, so it says so.
+  const fresh = !fs.existsSync(config.dbPath);
+  console.log(
+    `Database: ${config.dbPath}${fresh ? '  (does not exist yet — will be created)' : ''}`,
+  );
 
   const db = openDatabase(config.dbPath);
 

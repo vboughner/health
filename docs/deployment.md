@@ -177,8 +177,21 @@ enough for the app to come back after a reboot.
 ### 7. Create your login
 
 ```sh
-cd ~/health/server && npm run create-user -- van
+cd ~/health/server && ENV_FILE=/home/griljor/health-data/.env npm run create-user -- van
 ```
+
+**`ENV_FILE` is not optional here.** PM2 passes it to the server process; nothing
+passes it to a shell. Without it `config.ts` falls back to `<repo>/.env`, which does
+not exist on the VPS, and `DB_PATH` then defaults to `./data/app.db` *relative to the
+repo* — so the script creates a second database at `~/health/data/app.db`, migrates it,
+writes the account into it, and reports success. Logging in then fails against a
+database that has no users, and the stray file is outside everything
+`scripts/backup.sh` covers. This happened on the first deploy.
+
+The script prints the database path before prompting for a password. It should read
+`/home/griljor/health-data/app.db`; anything else, stop. The same applies to any other
+script run by hand against production — `seed-demo` included, whose
+`NODE_ENV=production` guard only fires when the env file is actually loaded.
 
 ### 8. Nightly backup
 
@@ -218,6 +231,47 @@ bash ~/health/scripts/rebuild-restart-production.sh
 The script rebuilds both packages, re-applies the `chmod` on the freshly recreated
 `web/dist`, and restarts the PM2 process. Migrations run automatically at startup.
 
+## Adding a login
+
+There is no signup page, on purpose — the public app has nothing to sign up against, so
+every account is made by hand on the VPS:
+
+```sh
+ssh griljor@5.78.75.71
+cd ~/health/server && ENV_FILE=/home/griljor/health-data/.env npm run create-user -- <username>
+```
+
+It prompts for the password twice with echo off, minimum 8 characters, and refuses a
+username that already exists. **Check the `Database:` line it prints first** — it must
+read `/home/griljor/health-data/app.db`. Anything else and `ENV_FILE` was dropped; see
+step 7 for what goes wrong then.
+
+No restart is needed. The server reads users per request, so a new account can log in
+immediately.
+
+Every table carries `user_id` and every query filters on it, so a second account is
+properly isolated rather than sharing Van's data. Nothing else is per-user, though:
+tracked-features settings live in each device's `localStorage`, and the calorie budget
+and eating window are columns on `users` with defaults from the mid-2026 plan, which a
+new account inherits and nothing in the UI edits.
+
+To list who exists, or remove someone:
+
+```sh
+sqlite3 ~/health-data/app.db "SELECT id, username, datetime(created_at/1000,'unixepoch','localtime') FROM users;"
+sqlite3 ~/health-data/app.db "PRAGMA foreign_keys = ON; DELETE FROM users WHERE username='<username>';"
+```
+
+That `PRAGMA` is not optional — the `sqlite3` CLI has foreign keys **off** by default,
+so without it the delete leaves every food, log and daily entry belonging to that user
+stranded in the tables instead of cascading. The app sets the pragma at startup, which
+is why the cascade looks reliable right up until the first time you clean up by hand.
+Their recordings are files and are never covered by the cascade:
+
+```sh
+rm -f ~/health-data/audio/goals-<id>-*
+```
+
 ## Verifying
 
 ```sh
@@ -238,5 +292,6 @@ problems a LAN test would hide.
 | 500 on the site | `sudo tail -20 /var/log/nginx/error.log` — usually the `chmod` on `web/dist` after a rebuild |
 | 404 on a deep link, works from the home page | `try_files ... /index.html` missing from the nginx block |
 | Logged out on every request | Cookie `secure` flag set while serving over HTTP, or `NODE_ENV` not `production` |
+| The account you just created can't log in | `create-user` ran without `ENV_FILE` and wrote to a second database. `ls -l ~/health/data/app.db` — if that exists at all it is the stray one. Re-run step 7 with `ENV_FILE=`, then `rm -rf ~/health/data` |
 | Food search returns only saved foods | `USDA_API_KEY` missing from `~/health-data/.env`, or PM2 started before the file existed (`pm2 restart health --update-env`) |
 | App on the phone shows an old version | Stale service worker — nginx must send `no-cache` for `/index.html` and `/sw.js` |

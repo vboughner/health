@@ -220,6 +220,11 @@ Short version: PM2 app `health` on port 4300, nginx serves `web/dist` and proxie
 `/api`, database lives outside the repo at `/home/griljor/health-data/app.db`, secrets
 in `/home/griljor/health-data/.env`.
 
+Adding a login on the VPS is `create-user` again, but it **must** be given the env file
+— `ENV_FILE=/home/griljor/health-data/.env` — because PM2 passes that to the server and
+nothing passes it to a shell. See "Adding a login" in the deployment doc; without it the
+account goes into a second database that nothing reads and nothing backs up.
+
 Three rules, the first two inherited from griljor and learned the hard way:
 
 - **Never copy a repo nginx template over the live config** — certbot has edited the
