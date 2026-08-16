@@ -43,6 +43,39 @@ export function GoalsRecorder({
   useObjectUrl(previewRef, takeBlob);
 
   /**
+   * Whether this component is still on screen.
+   *
+   * `startRecording` sits behind the browser's permission prompt, which can be open for
+   * as long as the user ignores it. If they leave the tab in the meantime the promise
+   * still resolves, with a live microphone, into a component that no longer exists —
+   * and the stage-keyed cleanup below never sees a recorder to release. Nothing else
+   * here needs this; the microphone does.
+   */
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  /**
+   * A take can only be ended once. Both the Stop button and the ten-minute cap call
+   * finish(), the button stays live until stop() resolves, and stopping an already
+   * stopped MediaRecorder throws — so whichever gets there first wins and the other
+   * is a no-op.
+   */
+  const finishing = useRef(false);
+
+  /**
+   * A recording can only be deleted once. The confirm button stays live until the
+   * request comes back, and a second DELETE finds nothing stored and answers 404 — an
+   * error about a recording that did in fact go.
+   */
+  const removing = useRef(false);
+
+  /**
    * The running timer, and the cap that ends a take on its own.
    *
    * Stopping at the cap rather than letting it run means a recorder left going by
@@ -91,6 +124,11 @@ export function GoalsRecorder({
     setStage({ name: 'starting' });
     try {
       const recorder = await startRecording();
+      if (!mounted.current) {
+        recorder.cancel();
+        return;
+      }
+      finishing.current = false;
       // Zeroed here rather than in the timer effect: the clock belongs to this take,
       // and a take begins on the tap, not on a render.
       setElapsed(0);
@@ -103,6 +141,8 @@ export function GoalsRecorder({
   }
 
   async function finish(recorder: Recorder) {
+    if (finishing.current) return;
+    finishing.current = true;
     const take = await recorder.stop();
     setStage({ name: 'review', take });
   }
@@ -122,6 +162,8 @@ export function GoalsRecorder({
   }
 
   async function remove() {
+    if (removing.current) return;
+    removing.current = true;
     setError('');
     try {
       await api.del('/goals/recording');
@@ -129,6 +171,8 @@ export function GoalsRecorder({
       setConfirmingDelete(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not delete that recording');
+    } finally {
+      removing.current = false;
     }
   }
 
@@ -154,7 +198,13 @@ export function GoalsRecorder({
           <audio className="recorder-preview" ref={previewRef} controls />
 
           <div className="recorder-actions">
-            <button className="btn" onClick={() => setStage({ name: 'idle' })}>
+            <button
+              className="btn"
+              onClick={() => {
+                setError('');
+                setStage({ name: 'idle' });
+              }}
+            >
               Discard
             </button>
             <button className="btn btn-primary" onClick={() => void save(stage.take)}>
@@ -192,7 +242,7 @@ export function GoalsRecorder({
                   <button className="btn-ghost tiny" onClick={() => setConfirmingDelete(false)}>
                     Keep
                   </button>
-                  <button className="btn-ghost tiny danger" onClick={() => void remove()}>
+                  <button className="btn-ghost tiny recorder-delete" onClick={() => void remove()}>
                     Delete
                   </button>
                 </span>
@@ -239,8 +289,8 @@ function useObjectUrl(ref: RefObject<HTMLAudioElement | null>, blob: Blob | null
     el.src = url;
 
     return () => {
-      // Cleared before revoking so the element is not left holding a dead url in the
-      // case where it outlives the take.
+      // Belt and braces: the element goes with the review stage, so nothing is left
+      // pointing at the url anyway.
       el.removeAttribute('src');
       URL.revokeObjectURL(url);
     };
