@@ -1,15 +1,16 @@
 # Health Tracker (health.hovercloud.com)
 
-A personal food, exercise, sleep, and weight tracker built around the plan in
-`Personal/Mid-2026 Goals.md` of the Obsidian vault at `~/dev/personal`: 2400 cal/day,
-~960 cal/day burned, a 9am–7pm eating window, whole-foods / no-meat / no-dairy.
+A personal food, exercise, sleep, and weight tracker. Phone-first PWA, one user (Van).
+Live at **https://health.hovercloud.com** since 2026-08-16, and also runs locally.
 
-That note is the source of truth for the *goals*; this repo owns the *app*. Its "App
-Implementation" section is a plain-English summary of what is built here — worth
-skimming before a big change.
-
-Phone-first PWA, one user (Van). Live at **https://health.hovercloud.com** since
-2026-08-16, and also runs locally.
+**The goals live in the app, per account.** The calorie budget, daily burn target and
+eating window are rows in `goal_periods`, edited on the Settings screen; the plan itself
+is markdown in `users.plan_md`, written and read on the Goals tab. It started as a copy
+of `Personal/Mid-2026 Goals.md` in the Obsidian vault at `~/dev/personal` — 2400 cal/day,
+~960 burned, a 9am–7pm window, whole foods / no meat / no dairy — and that note is still
+worth reading for the reasoning behind those numbers. It is no longer the source of
+truth: a second account writes its own plan, and there is no reason it should live in
+someone else's vault. Keeping the note in step is a habit now, not a coupling.
 
 ## Commands
 
@@ -64,12 +65,18 @@ Two packages, mirroring the `server/` + `client/` split in the griljor repo.
     `Login`.
   - `src/dates.ts` — client-side day arithmetic. Mirrors parts of the server's
     `domain/day.ts` on purpose: the two packages must not import each other.
-  - `src/settings.ts` — which features this device tracks (diet, exercise, sleep,
-    weight, goals). **Per-device, in `localStorage`** — the server knows nothing about
-    it, and nothing is deleted or stops being recorded when a feature goes off. It
-    only decides what `Today` and `Trends` draw, so turning one back on brings its
-    whole history with it. `nothingTracked()` asks `FEATURES` rather than a list of
-    its own, so a toggle added later is counted without anyone remembering to.
+  - `src/settings.ts` — which features this account tracks (diet, exercise, sleep,
+    weight, goals). **Per-account, on the server** — five `track_*` columns on `users`,
+    arriving with the user from `/auth/me`. This was per-device in `localStorage`, and
+    the reasoning for that was written down and argued for; it was deliberately reversed
+    in migration 006, because one account should mean one set of settings on every
+    device you sign into. The toggles already on a phone were **not** adopted — the
+    server's defaults won once, and `clearLegacySettings()` deletes the old key on boot.
+    Nothing is deleted or stops being recorded when a feature goes off; it only decides
+    what `Today` and `Trends` draw, so turning one back on brings its whole history with
+    it. `nothingTracked()` still asks `FEATURES` rather than a list of its own, so a
+    toggle added later is counted without anyone remembering to — and `domain/features.ts`
+    gives the server the same property for validating and storing them.
   - `src/components/charts.tsx` — hand-rolled inline SVG, no chart library. Bars are
     zero-based on purpose; a truncated baseline makes a 1200-calorie day look like a
     fraction of a 2000-calorie one.
@@ -98,6 +105,21 @@ snapshotted onto `food_log` for the same reason the calories are.
 
 **The eating window is derived, never asked.** First and last bite come from `food_log`
 timestamps. A checkbox is something you can lie to; a timestamp is not.
+
+**Goals are effective-dated, and editing asks how far back it reaches.** The eating
+window and the budget are evaluated per request, so changing them would otherwise
+re-judge every past day — right for fixing a typo, wrong for a real schedule change.
+`goal_periods` holds each set with the day it took effect, `goalsForDay` picks the one
+covering a day (falling back to the earliest, so seeded history behind the first period
+still resolves), and Save offers *from today onward* against *fix a mistake*. A
+correction rewrites the period covering **today**, not all of them, so fixing an October
+typo cannot undo a September change. Once you have edited today the two are the same row
+and do the same thing.
+
+**Settings need the network and nothing is queued.** A toggle moves at once and goes
+back if the write fails; the goal form and the plan editor keep your edits on screen.
+This is the same call `sw.js` makes about the app shell — a setting that looks saved and
+is not is worse than one that says it could not be.
 
 **`food_log` snapshots its calories and macros at log time.** Re-caching a food from
 USDA later must never rewrite what a past day says you ate. There is a test for this.
@@ -140,10 +162,9 @@ silently. On the Mac, `localhost:5174` counts as secure and can be used to test 
   and the 7pm cutoff is evaluated in local time.
 - `daily_entries.goals_reviewed` (migration 002) replaced `reviewed_morning` /
   `reviewed_night` when the check-in UI was removed and the Goals tab replaced it.
-- `daily_entries.no_meat` / `no_dairy` are **vestigial** — columns and server plumbing
-  exist, nothing in the UI writes them. They were check-in boxes that proved to be more
-  nagging than useful. Either give them a home or drop them in a migration; do not leave
-  them half-wired indefinitely.
+- `goal_periods` is the only store for the goal numbers. Migration 005 dropped the four
+  columns that used to live on `users`; there is no live copy anywhere else to drift
+  out of sync with it.
 
 ## Style and workflow
 

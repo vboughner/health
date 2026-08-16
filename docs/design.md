@@ -2,7 +2,7 @@
 
 ## Context
 
-`Personal/Mid-2026 Goals.md` sets a concentrated 2-month push to cut body fat: 2400 cal/day intake, ~960 cal/day burned, a 9am–7pm eating window, and a whole-foods / no-meat / no-dairy diet. The note's own lesson from past attempts is *"record what I eat and my exercise daily — measure it and it will improve."* Generic fitness apps don't fit this plan well: they don't model an eating window, don't nudge on refined/processed ingredients, and don't put sleep, weight, exercise and the daily check-in on one screen.
+`Personal/Mid-2026 Goals.md` set a concentrated 2-month push to cut body fat: 2400 cal/day intake, ~960 cal/day burned, a 9am–7pm eating window, and a whole-foods / no-meat / no-dairy diet. The note's own lesson from past attempts is *"record what I eat and my exercise daily — measure it and it will improve."* Generic fitness apps don't fit this plan well: they don't model an eating window, don't nudge on refined/processed ingredients, and don't put sleep, weight, exercise and the daily check-in on one screen. That note is where these numbers came from, not where they live: v1 stored them as fixed columns on `users`, but the app has since grown its own per-account goal history and plan text, so a second account is not reading anyone's vault.
 
 So: a phone-friendly PWA, built and used locally first, then deployed to the existing Hetzner VPS at `health.hovercloud.com` alongside Griljor and the blog.
 
@@ -65,8 +65,13 @@ Read from `~/dev/griljor` and `~/dev/ai-blog`:
 ### Data model (`001_init.sql`)
 
 ```
-users             id, username, password_hash, timezone, daily_kcal_budget (2400),
-                  daily_burn_target (960), window_start ('09:00'), window_end ('19:00'), created_at
+users             id, username, password_hash, timezone, created_at,
+                  track_food, track_exercise, track_sleep, track_weight, track_goals (all 1),
+                  plan_md ('')
+goal_periods      id, user_id, effective_from (YYYY-MM-DD), kcal_budget, burn_target,
+                  window_start, window_end
+                  -- UNIQUE(user_id, effective_from); goalsForDay picks the latest period
+                  -- on or before a day, falling back to the earliest
 sessions          token PK, user_id, expires_at            -- server-side, revocable
 foods             id, user_id NULL, source ('usda'|'manual'), source_id, name, brand,
                   serving_desc, serving_grams, kcal_per_100g, protein_g, fat_g, carb_g,
@@ -76,10 +81,10 @@ foods             id, user_id NULL, source ('usda'|'manual'), source_id, name, b
 food_log          id, user_id, food_id, eaten_at (epoch ms), local_day (YYYY-MM-DD),
                   quantity, unit, grams, kcal, protein_g, fat_g, carb_g
                   -- nutrition SNAPSHOTTED at log time so history never rewrites itself
-exercise_log      id, user_id, local_day, activity, minutes, kcal,
-                  source ('estimated'|'measured'), note
+exercise_log      id, user_id, local_day, activity, minutes, kcal
+                  -- kcal is always a MET estimate scaled by body weight
 daily_entries     id, user_id, local_day UNIQUE(user_id,local_day), weight_lb,
-                  sleep_start, sleep_end, goals_reviewed, no_meat, no_dairy, note
+                  sleep_start, sleep_end, goals_reviewed
                   -- 002 folded reviewed_morning/reviewed_night into goals_reviewed
 schema_migrations version, applied_at
 ```
@@ -105,7 +110,7 @@ Timestamps are stored as UTC epoch millis plus a denormalized `local_day` comput
 1. **Day** (default) — calories eaten / remaining against 2400; macro % bar; eating-window bar showing first and last bite against 9–7, with the target and a met/not-met verdict on one line; today's entries; exercise burned vs 960; weight and sleep. Arrows and a date picker step to any past day, which stays editable.
 2. **Add food** — one search box over saved foods + USDA, results carry a ⚠ chip if flagged; pick → serving/quantity → live kcal/macro preview → log. Amber banner if the food is flagged. Manual-entry escape hatch.
 3. **Trends** — weight line with a trend fit, daily calories vs the 2400 line, eating-window and goals-reviewed compliance strips, goal-review streak. 14 / 30 / 90 day toggle.
-4. **Goals** — "The Plan" from the vault note, with a button confirming you have read it today.
+4. **Goals** — the account's own plan, edited here as markdown and read back on this screen, with a button confirming you have read it today.
 5. **Login** — username + password.
 
 ### Processed-food classifier (`domain/processed.ts`)
@@ -174,5 +179,5 @@ Each phase ends in something runnable. Tests are written alongside, per the gril
 
 ## Notes
 
-- The vault note `Personal/Mid-2026 Goals.md` gets a short pointer to the new repo once it exists; the note stays the source of truth for the *goals*, the repo for the *app*.
+- The vault note `Personal/Mid-2026 Goals.md` gets a short pointer to the new repo once it exists. It no longer stays the source of truth for the *goals* — those moved into the app, per account — but it is still where the reasoning behind the original numbers lives.
 - No changes to griljor, ai-blog, or any existing nginx/PM2 config. Port 4300 and a new subdomain keep this fully additive.
