@@ -5,6 +5,11 @@
  * Pressing it while it plays stops and rewinds — there is no pause, because the page
  * this sits on is for reading and a scrubber across the top of it would cost more room
  * than restarting a two-minute recording costs patience.
+ *
+ * The caller must pass `key={recording?.recorded_at ?? 'none'}` (or equivalent):
+ * when a recording is replaced or deleted, `playing`/`error` describe bytes that no
+ * longer exist, and that is a state reset on an identity change, which React does by
+ * remounting via a changing `key` rather than by setState inside an effect.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -16,21 +21,21 @@ export function GoalsPlayer({ recording }: { recording: GoalRecording | null }) 
   const audioRef = useRef<HTMLAudioElement>(null);
 
   /**
-   * A recording replaced or deleted while the page is open must not leave the old
-   * bytes playing under the new state. Leaving the tab unmounts the whole component,
-   * which stops it for the same reason.
+   * Playback stops when this component does — leaving the Goals tab unmounts it, and
+   * audio that outlived the page it belongs to would have no way to be stopped.
+   *
+   * Resetting `playing` when the recording is replaced is deliberately NOT done here.
+   * That is a state reset on an identity change, which React does through a changing
+   * `key` at the call site; doing it with a setState inside an effect is the pattern
+   * react-hooks/set-state-in-effect exists to catch. See Goals.tsx, which passes
+   * `key={recording?.recorded_at ?? 'none'}` — that key is load-bearing.
    */
   useEffect(() => {
-    // Synchronizing local playback state to a new recording identity, not deriving it
-    // from props/state available at render time, so there's no render-time equivalent.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPlaying(false);
-    setError('');
     const el = audioRef.current;
     return () => {
       el?.pause();
     };
-  }, [recording?.recorded_at]);
+  }, []);
 
   if (!recording) return null;
 
@@ -52,6 +57,9 @@ export function GoalsPlayer({ recording }: { recording: GoalRecording | null }) 
     setError('');
     el.play()
       .then(() => setPlaying(true))
+      // No setPlaying(false) here: play() rejecting means setPlaying(true) above never
+      // ran, so playing is already false. If the .then/.catch order ever changes, that
+      // stops being true and this needs setPlaying(false) added.
       .catch(() => setError('Could not play that recording.'));
   }
 
