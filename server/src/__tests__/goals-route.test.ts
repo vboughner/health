@@ -244,6 +244,7 @@ describe('one user cannot reach another user recording', () => {
       url: '/api/goals/recording',
       headers: { cookie: other.cookie },
     });
+    expect(metadata.statusCode).toBe(200);
     expect(metadata.json()).toEqual({ recording: null });
 
     const audio = await app.inject({

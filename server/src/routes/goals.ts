@@ -76,8 +76,8 @@ export function registerGoalRoutes(app: FastifyInstance, opts: AppOptions): void
   app.post<{ Querystring: { duration_ms?: string } }>(
     '/goals/recording',
     // Fastify's default body limit is 1 MB, which a two-minute recording clears and a
-    // long one does not. Without this the failure arrives as a mystery 413 from the
-    // framework rather than from the check below.
+    // long one does not. Raising it to MAX_AUDIO_BYTES here is what lets a valid long
+    // recording reach the handler at all, rather than 413ing during parsing.
     { preHandler: app.requireUser, bodyLimit: MAX_AUDIO_BYTES },
     async (request, reply) => {
       const userId = request.user!.id;
@@ -96,6 +96,9 @@ export function registerGoalRoutes(app: FastifyInstance, opts: AppOptions): void
       if (!Buffer.isBuffer(body) || body.length === 0) {
         return reply.code(400).send({ error: 'Expected audio in the request body' });
       }
+      // Defence in depth: with bodyLimit above set to MAX_AUDIO_BYTES, Fastify rejects
+      // an oversized body during parsing and this branch cannot run. Kept in case the
+      // two limits ever diverge.
       if (body.length > MAX_AUDIO_BYTES) {
         return reply.code(413).send({ error: 'That recording is too long to store' });
       }
@@ -112,18 +115,20 @@ export function registerGoalRoutes(app: FastifyInstance, opts: AppOptions): void
       const finalPath = path.join(opts.mediaDir, filename);
 
       // Written under a temp name and renamed into place, so a write that dies part
-      // way through cannot leave a truncated file where a good recording was.
+      // way through is never observed: a reader sees the complete take appear
+      // atomically, or not at all.
       fs.mkdirSync(opts.mediaDir, { recursive: true });
       fs.writeFileSync(`${finalPath}.part`, body);
       fs.renameSync(`${finalPath}.part`, finalPath);
 
-      const previous = putGoalRecording(opts.db, userId, {
+      const rec: GoalRecording = {
         filename,
         mime,
         bytes: body.length,
         duration_ms: Math.round(durationMs),
         recorded_at: recordedAt,
-      });
+      };
+      const previous = putGoalRecording(opts.db, userId, rec);
 
       // Only now, with the row pointing at the new file, is the old one unreferenced.
       // Two takes inside the same millisecond would share a name; the guard keeps that
@@ -132,14 +137,7 @@ export function registerGoalRoutes(app: FastifyInstance, opts: AppOptions): void
         removeQuietly(app, opts.mediaDir, previous.filename);
       }
 
-      return reply.code(201).send({
-        recording: {
-          mime,
-          bytes: body.length,
-          duration_ms: Math.round(durationMs),
-          recorded_at: recordedAt,
-        },
-      });
+      return reply.code(201).send({ recording: publicView(rec) });
     },
   );
 
