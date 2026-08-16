@@ -8,7 +8,8 @@ That note is the source of truth for the *goals*; this repo owns the *app*. Its 
 Implementation" section is a plain-English summary of what is built here — worth
 skimming before a big change.
 
-Phone-first PWA, one user (Van). Runs locally; **not yet deployed**.
+Phone-first PWA, one user (Van). Live at **https://health.hovercloud.com** since
+2026-08-16, and also runs locally.
 
 ## Commands
 
@@ -212,10 +213,12 @@ purpose so it can be set by hand and watched to update.
 
 ## Deployment
 
-**Not yet deployed.** See [`docs/deployment.md`](docs/deployment.md) for the full
-first-time steps. Short version: PM2 app `health` on port 4300, nginx serves `web/dist`
-and proxies `/api`, database lives outside the repo at
-`/home/griljor/health-data/app.db`, secrets in `/home/griljor/health-data/.env`.
+**Live at https://health.hovercloud.com.** To ship a change: `cd ~/health && git pull`
+on the VPS, then `bash ~/health/scripts/rebuild-restart-production.sh`. See
+[`docs/deployment.md`](docs/deployment.md) for the first-time steps and troubleshooting.
+Short version: PM2 app `health` on port 4300, nginx serves `web/dist` and proxies
+`/api`, database lives outside the repo at `/home/griljor/health-data/app.db`, secrets
+in `/home/griljor/health-data/.env`.
 
 Three rules, the first two inherited from griljor and learned the hard way:
 
