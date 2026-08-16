@@ -142,3 +142,14 @@ export interface SearchResults {
   usdaConfigured: boolean;
   usdaError: string | null;
 }
+
+/**
+ * The goals read aloud. Metadata only — the audio itself is fetched as a URL by the
+ * player rather than carried through here.
+ */
+export interface GoalRecording {
+  mime: string;
+  bytes: number;
+  duration_ms: number;
+  recorded_at: number;
+}

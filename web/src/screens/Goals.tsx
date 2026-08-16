@@ -10,6 +10,9 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api';
 import { shortDayLabel } from '../dates';
+import { GoalsPlayer } from '../components/GoalsPlayer';
+import { GoalsRecorder } from '../components/GoalsRecorder';
+import type { GoalRecording } from '../types';
 
 interface Section {
   title: string;
@@ -75,6 +78,30 @@ export function Goals({
   onReviewed: () => void;
 }) {
   const [error, setError] = useState('');
+  const [recording, setRecording] = useState<GoalRecording | null>(null);
+  const [recordingError, setRecordingError] = useState('');
+
+  /**
+   * Kept apart from the review write below: that one runs on every day change, this one
+   * only on arrival, and a failure in either must not be reported as the other. Failing
+   * here means no speaker button, so it says so rather than leaving a silent gap.
+   */
+  useEffect(() => {
+    let cancelled = false;
+
+    api
+      .get<{ recording: GoalRecording | null }>('/goals/recording')
+      .then(({ recording }) => {
+        if (!cancelled) setRecording(recording);
+      })
+      .catch(() => {
+        if (!cancelled) setRecordingError('Could not check for a saved recording.');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   /**
    * Opening the page is the review. There is nothing to press: a button that only
@@ -104,7 +131,15 @@ export function Goals({
 
   return (
     <div className="stack">
-      <h1 className="screen-title">Goals</h1>
+      <div className="title-row">
+        <h1 className="screen-title">Goals</h1>
+        {/* The key is load-bearing, not decoration. GoalsPlayer holds play state that
+            must not survive the recording underneath it being replaced or deleted, and
+            a changing key is how React resets it — the component itself deliberately
+            does not reset state in an effect. Drop the key and a re-record leaves the
+            button claiming to play a file that no longer exists. */}
+        <GoalsPlayer recording={recording} key={recording?.recorded_at ?? 'none'} />
+      </div>
 
       {PLAN.map((section) => (
         <div className="card" key={section.title}>
@@ -127,6 +162,10 @@ export function Goals({
           Marked <strong>{shortDayLabel(date, today)}</strong> as reviewed, not today.
         </div>
       )}
+
+      {recordingError && <div className="error">{recordingError}</div>}
+
+      <GoalsRecorder recording={recording} onChange={setRecording} />
     </div>
   );
 }

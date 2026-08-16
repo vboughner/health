@@ -11,6 +11,7 @@ async function main() {
   const app = buildApp({
     db,
     usda: createUsdaClient(config.usdaApiKey),
+    mediaDir: config.mediaDir,
     sessionSecret: config.sessionSecret,
     isProduction: config.isProduction,
     logger: true,
@@ -26,6 +27,7 @@ async function main() {
 
   await app.listen({ port: config.port, host: '0.0.0.0' });
   app.log.info(`database: ${config.dbPath}`);
+  app.log.info(`recordings: ${config.mediaDir}`);
   app.log.info(
     `usda key: ${config.usdaApiKey ? 'configured' : 'MISSING — food search will be limited'}`,
   );

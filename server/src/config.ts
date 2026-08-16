@@ -28,10 +28,25 @@ function requireSessionSecret(): string {
   return secret;
 }
 
+const dbPath = resolveDbPath(process.env.DB_PATH ?? './data/app.db');
+
+/**
+ * Where recordings are written. Defaults to an `audio/` sibling of the database, so
+ * the two halves of the user's data travel together — locally `data/audio/`, which
+ * `data/` in .gitignore already covers, and in production
+ * /home/griljor/health-data/audio/ next to app.db.
+ */
+function resolveMediaDir(): string {
+  const raw = process.env.MEDIA_DIR;
+  if (!raw) return path.join(path.dirname(dbPath), 'audio');
+  return path.isAbsolute(raw) ? raw : path.resolve(REPO_ROOT, raw);
+}
+
 export const config = {
   isProduction,
   port: Number(process.env.PORT ?? 4300),
-  dbPath: resolveDbPath(process.env.DB_PATH ?? './data/app.db'),
+  dbPath,
+  mediaDir: resolveMediaDir(),
   sessionSecret: requireSessionSecret(),
   usdaApiKey: process.env.USDA_API_KEY ?? '',
 };

@@ -339,6 +339,34 @@ textarea:focus {
   padding: 8px 10px;
 }
 
+/* A square tap target for an icon with no label beside it. 44px is the smallest thing
+   a thumb finds reliably; the icon inside is smaller than that on purpose, so the
+   generous part is the target and not the mark. The negative margin pulls the button
+   back to the text edge — its padding is tap target, not gutter. */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin-right: -11px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-dim);
+}
+
+.btn-icon:active {
+  background: var(--surface-2);
+}
+
+/* Playing is a state, so it takes the accent — the same way the review tick does. */
+.btn-icon[aria-pressed='true'] {
+  color: var(--accent);
+}
+
 /* ---------- misc ---------- */
 
 .muted {
@@ -461,6 +489,15 @@ textarea:focus {
 
 .screen-title {
   font-size: 22px;
+}
+
+/* A screen title with something that acts on the whole page pushed to the far edge.
+   The title keeps its own font size; this only arranges. */
+.title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .note {
@@ -1616,5 +1653,77 @@ textarea:focus {
 @media (prefers-reduced-motion: reduce) {
   .day-body {
     transition: none;
+  }
+}
+
+/* ---------- recording the goals ---------- */
+
+.recorder {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.recorder-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+/* Red, because it is a recording light and nothing else in the app is. Not the amber
+   --warn: this is not a warning, and amber is spoken for. */
+.recorder-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--over);
+  animation: recorder-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes recorder-pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* Tabular figures so the seconds do not shuffle the line about as they count. */
+.recorder-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.recorder-preview {
+  width: 100%;
+}
+
+.recorder-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.recorder-existing {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.recorder-confirm {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.recorder-delete {
+  color: var(--over);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recorder-dot {
+    animation: none;
   }
 }

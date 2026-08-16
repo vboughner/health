@@ -40,9 +40,10 @@ Two packages, mirroring the `server/` + `client/` split in the griljor repo.
   - `src/domain/` — **pure functions, no I/O**: `nutrition` (serving→calorie math, macro
     percentages), `exercise` (MET estimate), `processed` (refined-food classifier),
     `day` (local-day boundaries, eating window, sleep hours), `trend` (weight slope,
-    moving average, streaks). All the interesting arithmetic lives here and is tested
-    without a server or database. Keep it that way — routes stay thin: parse, call
-    domain, persist, return.
+    moving average, streaks), `recording` (mime allowlist, size and length caps,
+    filenames). All the interesting arithmetic lives here and is tested without a
+    server or database. Keep it that way — routes stay thin: parse, call domain,
+    persist, return.
   - `src/routes/` — one file per resource group, all under `/api`: `auth`, `foods`,
     `log`, `day`, `summary`, `trends`.
   - `src/store.ts` — **all SQL**. Every query filters on `user_id`.
@@ -50,6 +51,11 @@ Two packages, mirroring the `server/` + `client/` split in the griljor repo.
     `schema_migrations`. Never edit an applied migration; add a new one.
   - `src/usda.ts` — FoodData Central behind an interface so tests use a fake.
     **The test suite never hits the network.**
+  - Recordings of the goals are **files, not rows**: the audio lives in `MEDIA_DIR`
+    (`data/audio/` locally, beside `app.db` in production) and `goal_recordings` holds
+    one metadata row per user. Uploads arrive as a raw `audio/*` body through a regex
+    content-type parser — there is no multipart dependency — and the POST route carries
+    its own `bodyLimit`, because Fastify's default of 1 MB is under a long recording.
 - **`web/`** — Vite + React + TypeScript, ESM. Built to `web/dist/`, served by nginx in
   production. The dev server proxies `/api` to :4300 so cookies behave identically in
   dev and prod.
@@ -113,6 +119,17 @@ above the house lightness band — darkening it into the band collapses green/ye
 separation to ~6 ΔE, and telling two macros apart matters more than uniform mark
 weight. If you restyle these, re-run the validator rather than guessing.
 
+**A recording's duration is measured by the recorder, not read from the file.** Blobs
+out of `MediaRecorder` routinely carry no duration in their header and an `<audio>`
+element reports `Infinity` for them, so the web recorder counts elapsed milliseconds
+itself and posts them as `?duration_ms=`. Do not "simplify" this by reading it back
+off the element.
+
+**Recording needs a secure context.** `getUserMedia` is absent — not merely refused —
+over plain http, so recording cannot work from the phone at `http://<LAN-IP>:5174`.
+Playback is unaffected. The recorder says which of the two it is rather than failing
+silently. On the Mac, `localhost:5174` counts as secure and can be used to test capture.
+
 ## Data model notes
 
 - Every table carries `user_id`. One user today, but isolation is enforced in queries
@@ -158,7 +175,22 @@ seed it, and **delete it afterwards**:
 # create user 'shot', then:
 npm run seed-demo --prefix server -- shot
 # ...screenshot...
-# then DELETE FROM users WHERE username='shot'  (cascades)
+```
+
+Then delete it. **Turn foreign keys on explicitly** — the `sqlite3` CLI has them off by
+default, so a bare `DELETE FROM users` leaves every dependent row stranded rather than
+cascading:
+
+```sh
+sqlite3 data/app.db "PRAGMA foreign_keys = ON; DELETE FROM users WHERE username='shot';"
+```
+
+The app itself always sets that pragma at startup, which is why the cascade looks reliable
+until the first time you clean up by hand. A recording's audio file is *not* covered by the
+cascade either way, because it is not in the database:
+
+```sh
+rm -f data/audio/goals-*
 ```
 
 Prefer measuring over eyeballing where you can — element widths, page height across a
@@ -183,5 +215,8 @@ Three rules, the first two inherited from griljor and learned the hard way:
   live file to add SSL and copying over it wipes that. Edit in place.
 - **Re-run `chmod -R o+r web/dist` after every build** — the dist directory is recreated
   fresh each time and loses the permissions nginx (`www-data`) needs.
-- **Set up the nightly SQLite backup before relying on it.** This is the first thing on
-  that VPS with a real database; the data exists nowhere else.
+- **Set up the nightly backup before relying on it.** `scripts/backup.sh` covers two
+  things — `app.db` and the `audio/` directory of goals recordings beside it — because
+  the recordings deliberately are not in the database. A `.backup` of the database
+  alone looks complete and loses every recording. This is the first thing on that VPS
+  with real data; it exists nowhere else.

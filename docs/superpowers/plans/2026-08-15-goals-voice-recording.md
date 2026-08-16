@@ -214,8 +214,12 @@ export function normalizeMime(header: string): string {
  * concatenate into a filename: it can only ever be one of the strings above.
  */
 export function extensionFor(mime: string): string | null {
-  return Object.prototype.hasOwnProperty.call(EXTENSIONS, normalizeMime(mime))
-    ? EXTENSIONS[normalizeMime(mime)]
+  const normalized = normalizeMime(mime);
+  // hasOwnProperty rather than a bare lookup: `constructor` and friends are on every
+  // object's prototype, and a truthy hit there would put a function where the
+  // extension goes.
+  return Object.prototype.hasOwnProperty.call(EXTENSIONS, normalized)
+    ? EXTENSIONS[normalized]
     : null;
 }
 
@@ -1212,18 +1216,24 @@ In `web/src/api.ts`, lift the error parsing out of `request` so both callers sha
 
 ```ts
 /**
- * The error a non-2xx response deserves. Pulled out of `request` because the raw-body
- * upload needs exactly the same handling and nothing else in common with it.
+ * Everything the two request shapes do once the response is back: raise on a failure,
+ * and hand a 204 back as nothing. Pulled out because the raw-body upload needs exactly
+ * this and has nothing else in common with `request`.
  */
-async function toError(res: Response): Promise<ApiError> {
-  let message = `Request failed (${res.status})`;
-  try {
-    const json = await res.json();
-    if (json?.error) message = json.error;
-  } catch {
-    // Non-JSON error body (nginx 502, for instance) — keep the generic message.
+async function unwrap<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    let message = `Request failed (${res.status})`;
+    try {
+      const json = await res.json();
+      if (json?.error) message = json.error;
+    } catch {
+      // Non-JSON error body (nginx 502, for instance) — keep the generic message.
+    }
+    throw new ApiError(message, res.status);
   }
-  return new ApiError(message, res.status);
+
+  if (res.status === 204) return undefined as T;
+  return res.json() as Promise<T>;
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -1234,10 +1244,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 
-  if (!res.ok) throw await toError(res);
-
-  if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
+  return unwrap<T>(res);
 }
 
 /**
@@ -1254,10 +1261,7 @@ async function postBlob<T>(path: string, blob: Blob): Promise<T> {
     body: blob,
   });
 
-  if (!res.ok) throw await toError(res);
-
-  if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
+  return unwrap<T>(res);
 }
 ```
 
@@ -2018,7 +2022,12 @@ change the title line to a row:
 ```tsx
       <div className="title-row">
         <h1 className="screen-title">Goals</h1>
-        <GoalsPlayer recording={recording} />
+        {/* The key is load-bearing, not decoration. GoalsPlayer holds play state that
+            must not survive the recording underneath it being replaced or deleted, and
+            a changing key is how React resets it — the component itself deliberately
+            does not reset state in an effect. Drop the key and a re-record leaves the
+            button claiming to play a file that no longer exists. */}
+        <GoalsPlayer recording={recording} key={recording?.recorded_at ?? 'none'} />
       </div>
 ```
 
@@ -2311,6 +2320,36 @@ over plain http, so recording cannot work from the phone at `http://<LAN-IP>:517
 Playback is unaffected. The recorder says which of the two it is rather than failing
 silently. On the Mac, `localhost:5174` counts as secure and can be used to test capture.
 ```
+
+**d.** In the "Verify UI changes by looking at them" section, correct the throwaway-account
+cleanup. The current text says `DELETE FROM users WHERE username='shot'  (cascades)`. **It
+does not cascade** — the `sqlite3` CLI has `PRAGMA foreign_keys` off by default, so that
+statement deletes the user row and leaves every dependent row behind. Task 7 of this branch
+hit exactly that and stranded 370 rows. Replace that block with:
+
+````markdown
+```sh
+# create user 'shot', then:
+npm run seed-demo --prefix server -- shot
+# ...screenshot...
+```
+
+Then delete it. **Turn foreign keys on explicitly** — the `sqlite3` CLI has them off by
+default, so a bare `DELETE FROM users` leaves every dependent row stranded rather than
+cascading:
+
+```sh
+sqlite3 data/app.db "PRAGMA foreign_keys = ON; DELETE FROM users WHERE username='shot';"
+```
+
+The app itself always sets that pragma at startup, which is why the cascade looks reliable
+until the first time you clean up by hand. A recording's audio file is *not* covered by the
+cascade either way, because it is not in the database:
+
+```sh
+rm -f data/audio/goals-*
+```
+````
 
 - [ ] **Step 5: Run the full check and commit**
 

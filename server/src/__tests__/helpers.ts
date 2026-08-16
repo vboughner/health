@@ -1,3 +1,6 @@
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import type { FastifyInstance, InjectOptions, LightMyRequestResponse } from 'fastify';
 import { openDatabase, type Db } from '../db';
 import { buildApp } from '../app';
@@ -10,8 +13,27 @@ export function testDb(): Db {
   return openDatabase(':memory:');
 }
 
-export function testApp(db: Db, usda: UsdaClient = nullUsdaClient): FastifyInstance {
-  return buildApp({ db, usda, sessionSecret: TEST_SECRET, isProduction: false, logger: false });
+/**
+ * A throwaway directory for a test's audio files. Each call gets its own, so two
+ * suites writing a recording for user 1 cannot collide.
+ */
+export function testMediaDir(): string {
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'health-media-'));
+}
+
+export function testApp(
+  db: Db,
+  usda: UsdaClient = nullUsdaClient,
+  mediaDir: string = testMediaDir(),
+): FastifyInstance {
+  return buildApp({
+    db,
+    usda,
+    mediaDir,
+    sessionSecret: TEST_SECRET,
+    isProduction: false,
+    logger: false,
+  });
 }
 
 /** A stand-in for USDA that never touches the network. */
