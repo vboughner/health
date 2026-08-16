@@ -2022,7 +2022,12 @@ change the title line to a row:
 ```tsx
       <div className="title-row">
         <h1 className="screen-title">Goals</h1>
-        <GoalsPlayer recording={recording} />
+        {/* The key is load-bearing, not decoration. GoalsPlayer holds play state that
+            must not survive the recording underneath it being replaced or deleted, and
+            a changing key is how React resets it — the component itself deliberately
+            does not reset state in an effect. Drop the key and a re-record leaves the
+            button claiming to play a file that no longer exists. */}
+        <GoalsPlayer recording={recording} key={recording?.recorded_at ?? 'none'} />
       </div>
 ```
 
