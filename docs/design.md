@@ -62,7 +62,7 @@ Read from `~/dev/griljor` and `~/dev/ai-blog`:
 
 `domain/` is the point of the layout: all the interesting math is pure and testable without a server or a database. Routes stay thin — parse, call domain, persist, return.
 
-### Data model (`001_init.sql`)
+### Data model (current schema)
 
 ```
 users             id, username, password_hash, timezone, created_at,
@@ -104,14 +104,18 @@ Timestamps are stored as UTC epoch millis plus a denormalized `local_day` comput
 | `GET /day/:date`, `PUT /day/:date` | weight, sleep, goals-reviewed flag |
 | `GET /summary/:date` | **one call powering the whole Today screen** |
 | `GET /trends?days=30` | arrays for the charts |
+| `PUT /settings/goals` | edit `goal_periods`, `from_today` or `correction` scope |
+| `PUT /settings/features` | which of food / exercise / sleep / weight / goals this account tracks |
+| `GET /settings/plan`, `PUT /settings/plan` | the account's own markdown plan, read on the Goals tab |
 
 ### Screens
 
-1. **Day** (default) — calories eaten / remaining against 2400; macro % bar; eating-window bar showing first and last bite against 9–7, with the target and a met/not-met verdict on one line; today's entries; exercise burned vs 960; weight and sleep. Arrows and a date picker step to any past day, which stays editable.
+1. **Day** (default) — calories eaten / remaining against the day's budget; macro % bar; eating-window bar showing first and last bite against the account's window, with the target and a met/not-met verdict on one line; today's entries; exercise burned vs the account's burn target; weight and sleep. Arrows and a date picker step to any past day, which stays editable. Budget, burn target and window are per-account and effective-dated (`goal_periods`), not fixed numbers.
 2. **Add food** — one search box over saved foods + USDA, results carry a ⚠ chip if flagged; pick → serving/quantity → live kcal/macro preview → log. Amber banner if the food is flagged. Manual-entry escape hatch.
-3. **Trends** — weight line with a trend fit, daily calories vs the 2400 line, eating-window and goals-reviewed compliance strips, goal-review streak. 14 / 30 / 90 day toggle.
+3. **Trends** — weight line with a trend fit, daily calories vs the budget in force on each day, eating-window and goals-reviewed compliance strips, goal-review streak. 14 / 30 / 90 day toggle.
 4. **Goals** — the account's own plan, edited here as markdown and read back on this screen, with a button confirming you have read it today.
-5. **Login** — username + password.
+5. **Settings** — the goals form (calorie budget, burn target, eating window), edited as either `from_today` (starts a new period, leaves history alone) or `correction` (rewrites the period covering today in place); which of food / exercise / sleep / weight / goals this account tracks; log out. All of it lives on the account, not the device, so a change here follows you to every phone you sign in from.
+6. **Login** — username + password.
 
 ### Processed-food classifier (`domain/processed.ts`)
 

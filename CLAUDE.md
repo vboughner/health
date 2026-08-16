@@ -171,7 +171,7 @@ silently. On the Mac, `localhost:5174` counts as secure and can be used to test 
 - Prettier: 2-space, single quotes, semicolons, 100 columns. Run `npm run format`.
 - Tests required for bug fixes (a regression test that fails before, passes after) and
   for new domain functions. Route changes get an integration test via Fastify
-  `app.inject()` against an in-memory database. ~300 tests total.
+  `app.inject()` against an in-memory database. 353 server + 79 web tests.
 - **Both packages type-check their tests**, and each `npm test` runs `tsc` before
   vitest, so a test that does not compile fails the suite rather than passing quietly.
   The two do it differently because their build configs differ:
