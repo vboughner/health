@@ -1655,3 +1655,75 @@ textarea:focus {
     transition: none;
   }
 }
+
+/* ---------- recording the goals ---------- */
+
+.recorder {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.recorder-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+/* Red, because it is a recording light and nothing else in the app is. Not the amber
+   --warn: this is not a warning, and amber is spoken for. */
+.recorder-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--over);
+  animation: recorder-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes recorder-pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* Tabular figures so the seconds do not shuffle the line about as they count. */
+.recorder-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.recorder-preview {
+  width: 100%;
+}
+
+.recorder-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.recorder-existing {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.recorder-confirm {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.danger {
+  color: var(--over);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recorder-dot {
+    animation: none;
+  }
+}
