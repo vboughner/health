@@ -3,7 +3,8 @@ import type { AppOptions } from '../app';
 import { localDay, addDays, eatingWindow, sleepHours } from '../domain/day';
 import { sumNutrition, macroSplit } from '../domain/nutrition';
 import { summarizeBurn } from '../domain/exercise';
-import { listFoodLog, listExercise, getDailyEntry } from '../store';
+import { goalsForDay } from '../domain/goals';
+import { listFoodLog, listExercise, getDailyEntry, listGoalPeriods } from '../store';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -32,14 +33,15 @@ export function registerSummaryRoutes(app: FastifyInstance, opts: AppOptions): v
       // this morning. Each field belongs to the calendar day you did it on, so the
       // pair has to be read across the boundary.
       const previous = getDailyEntry(opts.db, user.id, addDays(date, -1));
+      const goals = goalsForDay(listGoalPeriods(opts.db, user.id), date);
 
       const totals = sumNutrition(foods);
       const burn = summarizeBurn(exercise);
       const window = eatingWindow(
         foods.map((f) => f.eaten_at),
         user.timezone,
-        user.window_start,
-        user.window_end,
+        goals.window_start,
+        goals.window_end,
       );
 
       return {
@@ -48,18 +50,18 @@ export function registerSummaryRoutes(app: FastifyInstance, opts: AppOptions): v
           entries: foods,
           totals,
           macros: macroSplit(totals),
-          budget: user.daily_kcal_budget,
-          remaining: Math.round(user.daily_kcal_budget - totals.kcal),
+          budget: goals.kcal_budget,
+          remaining: Math.round(goals.kcal_budget - totals.kcal),
         },
         exercise: {
           entries: exercise,
           ...burn,
-          target: user.daily_burn_target,
+          target: goals.burn_target,
         },
         window: {
           ...window,
-          target_start: user.window_start,
-          target_end: user.window_end,
+          target_start: goals.window_start,
+          target_end: goals.window_end,
         },
         day: {
           ...day,

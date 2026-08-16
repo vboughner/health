@@ -1,6 +1,8 @@
 import crypto from 'crypto';
 import { hash, verify } from '@node-rs/argon2';
 import type { Db } from './db';
+import { DEFAULT_GOALS } from './domain/goals';
+import { putGoalPeriod } from './store';
 
 export const SESSION_COOKIE = 'sid';
 const SESSION_TTL_MS = 90 * 24 * 60 * 60 * 1000; // 90 days — this is a phone app, don't log me out weekly
@@ -9,14 +11,9 @@ export interface User {
   id: number;
   username: string;
   timezone: string;
-  daily_kcal_budget: number;
-  daily_burn_target: number;
-  window_start: string;
-  window_end: string;
 }
 
-const USER_COLUMNS =
-  'id, username, timezone, daily_kcal_budget, daily_burn_target, window_start, window_end';
+const USER_COLUMNS = 'id, username, timezone';
 
 export function hashPassword(password: string): Promise<string> {
   return hash(password);
@@ -31,12 +28,35 @@ export async function verifyPassword(passwordHash: string, password: string): Pr
   }
 }
 
+/**
+ * Create an account and the goals it starts with, in one transaction.
+ *
+ * The period is seeded here rather than in scripts/create-user.ts because the test
+ * helpers call this function too — so every account in every test has goals without
+ * anyone having to arrange it.
+ *
+ * effective_from is the UTC day, matching migration 005 and for the same reason: it
+ * is the earliest period, and goalsForDay falls back to the earliest for any day
+ * behind it, so a day either way changes nothing.
+ */
 export async function createUser(db: Db, username: string, password: string): Promise<User> {
   const passwordHash = await hashPassword(password);
-  const info = db
-    .prepare('INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)')
-    .run(username, passwordHash, Date.now());
-  return getUserById(db, Number(info.lastInsertRowid))!;
+  const now = Date.now();
+
+  const create = db.transaction(() => {
+    const info = db
+      .prepare('INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)')
+      .run(username, passwordHash, now);
+
+    const id = Number(info.lastInsertRowid);
+    putGoalPeriod(db, id, {
+      effective_from: new Date(now).toISOString().slice(0, 10),
+      ...DEFAULT_GOALS,
+    });
+    return id;
+  });
+
+  return getUserById(db, create())!;
 }
 
 export function getUserById(db: Db, id: number): User | undefined {

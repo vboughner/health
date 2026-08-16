@@ -8,6 +8,7 @@
 import type { Db } from './db';
 import { classify } from './domain/processed';
 import type { Nutrition } from './domain/nutrition';
+import type { GoalPeriod } from './domain/goals';
 
 export interface Food {
   id: number;
@@ -613,4 +614,37 @@ export function deleteGoalRecording(db: Db, userId: number): GoalRecording | und
   const previous = getGoalRecording(db, userId);
   if (previous) db.prepare('DELETE FROM goal_recordings WHERE user_id = ?').run(userId);
   return previous;
+}
+
+// ---------------------------------------------------------------- goal periods
+
+/** Every set of goals this account has had, oldest first. */
+export function listGoalPeriods(db: Db, userId: number): GoalPeriod[] {
+  return db
+    .prepare(
+      `SELECT effective_from, kcal_budget, burn_target, window_start, window_end
+       FROM goal_periods WHERE user_id = ? ORDER BY effective_from`,
+    )
+    .all(userId) as GoalPeriod[];
+}
+
+/**
+ * Write the goals that took effect on a day, replacing whatever started that day.
+ *
+ * An upsert rather than an insert: editing twice in one day would otherwise collide
+ * with the unique index. It is also what makes the two edit scopes converge once you
+ * have already changed something today — the period covering today *is* the period
+ * starting today, so both write this same row.
+ */
+export function putGoalPeriod(db: Db, userId: number, period: GoalPeriod): void {
+  db.prepare(
+    `INSERT INTO goal_periods
+       (user_id, effective_from, kcal_budget, burn_target, window_start, window_end)
+     VALUES (@user_id, @effective_from, @kcal_budget, @burn_target, @window_start, @window_end)
+     ON CONFLICT(user_id, effective_from) DO UPDATE SET
+       kcal_budget  = excluded.kcal_budget,
+       burn_target  = excluded.burn_target,
+       window_start = excluded.window_start,
+       window_end   = excluded.window_end`,
+  ).run({ user_id: userId, ...period });
 }

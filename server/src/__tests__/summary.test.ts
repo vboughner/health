@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { testDb, testApp, loginAs, fakeUsda, USDA_BANANA, type Payload, type Res } from './helpers';
 import type { Db } from '../db';
-import type { DailyEntryPatch } from '../store';
+import { putGoalPeriod, type DailyEntryPatch } from '../store';
 
 const DAY = '2026-01-15';
 /** A local wall-clock time on DAY, in Pacific (the default user timezone). */
@@ -396,5 +396,71 @@ describe('daily entry and summary', () => {
 
       expect(res.statusCode).toBe(400);
     });
+  });
+});
+
+describe('effective-dated goals', () => {
+  it('judges a day by the period covering it, not by the current numbers', async () => {
+    const db = testDb();
+    const app = testApp(db);
+    const { userId, cookie } = await loginAs(app, db, 'van');
+
+    // Two periods: 9-7 up to the end of July, 10-8 from August.
+    putGoalPeriod(db, userId, {
+      effective_from: '2026-01-01',
+      kcal_budget: 2400,
+      burn_target: 960,
+      window_start: '09:00',
+      window_end: '19:00',
+    });
+    putGoalPeriod(db, userId, {
+      effective_from: '2026-08-01',
+      kcal_budget: 2200,
+      burn_target: 900,
+      window_start: '10:00',
+      window_end: '20:00',
+    });
+
+    const july = await app.inject({
+      method: 'GET',
+      url: '/api/summary/2026-07-15',
+      headers: { cookie },
+    });
+    const august = await app.inject({
+      method: 'GET',
+      url: '/api/summary/2026-08-15',
+      headers: { cookie },
+    });
+
+    expect(july.json().window).toMatchObject({ target_start: '09:00', target_end: '19:00' });
+    expect(july.json().food.budget).toBe(2400);
+    expect(august.json().window).toMatchObject({ target_start: '10:00', target_end: '20:00' });
+    expect(august.json().food.budget).toBe(2200);
+
+    await app.close();
+  });
+
+  it('uses the earliest period for a day behind all of them', async () => {
+    const db = testDb();
+    const app = testApp(db);
+    const { userId, cookie } = await loginAs(app, db, 'van');
+
+    putGoalPeriod(db, userId, {
+      effective_from: '2026-08-01',
+      kcal_budget: 2200,
+      burn_target: 900,
+      window_start: '10:00',
+      window_end: '20:00',
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/summary/2026-01-05',
+      headers: { cookie },
+    });
+
+    expect(res.json().food.budget).toBe(2200);
+
+    await app.close();
   });
 });
