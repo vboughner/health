@@ -143,6 +143,14 @@ The database and the recordings are two files in two places, so the backup cover
 both — see `scripts/backup.sh`. A `.backup` of `app.db` alone would look complete
 and quietly lose every recording.
 
+`scripts/backup.sh` shells out to the `sqlite3` CLI, which nothing else on this VPS
+installs — the app itself never needs it, since the server talks to the database
+through `better-sqlite3`, a compiled Node module rather than the command-line tool:
+
+```sh
+sudo apt-get install -y sqlite3
+```
+
 ```sh
 crontab -e
 ```
