@@ -14,7 +14,7 @@ So: a phone-friendly PWA, built and used locally first, then deployed to the exi
 | Repo | New private repo `~/dev/health` (GitHub `vboughner/health`) |
 | Domain | `health.hovercloud.com` (deploy phase only) |
 | Auth | Real password login in v1, `user_id` on every table |
-| Exercise | MET-based estimate as the default, plus a "from watch" field that overrides and is marked *measured* |
+| Exercise | Activity and duration; calories are a MET-based estimate scaled by current body weight |
 | USDA | Van gets a free FoodData Central key; manual food entry works without it |
 | Deferred to v2 | Daily YouTube inspiration video (schema leaves room, no code) |
 
@@ -42,18 +42,24 @@ Read from `~/dev/griljor` and `~/dev/ai-blog`:
 │   │   ├── db.ts           better-sqlite3 handle + migration runner
 │   │   ├── migrations/     001_init.sql, 002_….sql
 │   │   ├── auth.ts         argon2 hashing, session cookie, requireUser hook
-│   │   ├── routes/         auth.ts, foods.ts, log.ts, day.ts, summary.ts, trends.ts
+│   │   ├── routes/         auth.ts, settings.ts, foods.ts, log.ts, day.ts, summary.ts,
+│   │   │                   trends.ts, goals.ts
 │   │   ├── usda.ts         FoodDataCentral client behind a small interface
 │   │   └── domain/         PURE functions — no I/O, heavily unit tested
 │   │       ├── nutrition.ts   serving → kcal/macros, macro percentages
 │   │       ├── exercise.ts    MET table → estimated kcal
 │   │       ├── processed.ts   processed-food classifier
+│   │       ├── goals.ts       goal defaults, validation, which period covers a day
+│   │       ├── features.ts    the tracked-feature list and its columns
 │   │       └── day.ts         day boundaries in user tz, eating-window derivation
 │   └── ecosystem.config.js
 ├── web/                    Vite + React + TS PWA
 │   └── src/
-│       ├── screens/        Today.tsx, AddFood.tsx, Trends.tsx, Login.tsx
-│       ├── components/     RingGauge, MacroBar, WindowBar, FoodRow, WarningChip
+│       ├── screens/        Today.tsx, Goals.tsx, AddFood.tsx, Trends.tsx,
+│       │                   Settings.tsx, Login.tsx
+│       ├── components/     MacroBar, WindowBar, FoodRow, GoalsForm, PlanEditor,
+│       │                   NothingTracked, charts.tsx
+│       ├── markdown.ts     the plan's three-rule subset → blocks to render
 │       └── api.ts          typed fetch wrapper (credentials: 'include')
 ├── scripts/rebuild-restart-production.sh
 ├── docs/                   design doc, deployment notes
@@ -129,7 +135,7 @@ USDA Foundation / SR-Legacy entries (raw whole foods — the bulk of this diet) 
 
 ### Exercise estimate (`domain/exercise.ts`)
 
-`kcal = MET × 3.5 × weightKg / 200 × minutes`, MET table: running 9.8, climbing 8.0, weights 5.0, walking 3.5, cycling 7.5, other 5.0. Weight comes from the most recent `daily_entries.weight_lb`. A watch number entered in the "measured" field replaces the estimate and is tagged so trends can distinguish the two.
+`kcal = MET × 3.5 × weightKg / 200 × minutes`, MET table: running 9.8, climbing 8.0, weights 5.0, walking 3.5, cycling 7.5, other 5.0. Weight comes from the most recent `daily_entries.weight_lb`, and logging exercise fails without one — an estimate is the only source of a calorie figure, so there is nothing to fall back on. A "from watch" field once overrode the estimate and tagged the row *measured*; the form stopped asking, so no real row was ever measured, and migration 007 dropped the column with it.
 
 ---
 
@@ -172,9 +178,9 @@ Each phase ends in something runnable. Tests are written alongside, per the gril
 **Manual, local, before any deploy:**
 1. `./dev.sh`, create a user, log in.
 2. Search a food Van actually eats (banana, brown rice, black beans, tempeh) against the real USDA key — confirm sane calories and macros.
-3. Log a full realistic day; check totals, remaining-against-2400, macro split, and that the eating window bar reflects the first and last entry times.
+3. Log a full realistic day; check totals, remaining against the calorie budget set in Settings, macro split, and that the eating window bar reflects the first and last entry times.
 4. Log something refined (white bread, a packaged snack) — confirm the amber banner and the persistent ⚠ chip on that food in later searches.
-5. Enter a climbing session by duration and confirm the estimate; then enter a watch number and confirm it overrides and is marked measured.
+5. Enter a climbing session by duration and confirm the estimate. There is no watch-number field: exercise calories are always a MET estimate scaled by body weight, so a weight has to be on record first.
 6. Enter weight and sleep times; confirm hours slept computes and persists across a reload.
 7. Backfill a few days, open Trends, confirm the charts render on a phone-width viewport.
 8. Add to home screen from the phone over LAN; confirm it opens full-screen and the shell loads offline.
