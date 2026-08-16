@@ -339,6 +339,34 @@ textarea:focus {
   padding: 8px 10px;
 }
 
+/* A square tap target for an icon with no label beside it. 44px is the smallest thing
+   a thumb finds reliably; the icon inside is smaller than that on purpose, so the
+   generous part is the target and not the mark. The negative margin pulls the button
+   back to the text edge — its padding is tap target, not gutter. */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin-right: -11px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-dim);
+}
+
+.btn-icon:active {
+  background: var(--surface-2);
+}
+
+/* Playing is a state, so it takes the accent — the same way the review tick does. */
+.btn-icon[aria-pressed='true'] {
+  color: var(--accent);
+}
+
 /* ---------- misc ---------- */
 
 .muted {
@@ -461,6 +489,15 @@ textarea:focus {
 
 .screen-title {
   font-size: 22px;
+}
+
+/* A screen title with something that acts on the whole page pushed to the far edge.
+   The title keeps its own font size; this only arranges. */
+.title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .note {
