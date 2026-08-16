@@ -2321,6 +2321,36 @@ Playback is unaffected. The recorder says which of the two it is rather than fai
 silently. On the Mac, `localhost:5174` counts as secure and can be used to test capture.
 ```
 
+**d.** In the "Verify UI changes by looking at them" section, correct the throwaway-account
+cleanup. The current text says `DELETE FROM users WHERE username='shot'  (cascades)`. **It
+does not cascade** — the `sqlite3` CLI has `PRAGMA foreign_keys` off by default, so that
+statement deletes the user row and leaves every dependent row behind. Task 7 of this branch
+hit exactly that and stranded 370 rows. Replace that block with:
+
+````markdown
+```sh
+# create user 'shot', then:
+npm run seed-demo --prefix server -- shot
+# ...screenshot...
+```
+
+Then delete it. **Turn foreign keys on explicitly** — the `sqlite3` CLI has them off by
+default, so a bare `DELETE FROM users` leaves every dependent row stranded rather than
+cascading:
+
+```sh
+sqlite3 data/app.db "PRAGMA foreign_keys = ON; DELETE FROM users WHERE username='shot';"
+```
+
+The app itself always sets that pragma at startup, which is why the cascade looks reliable
+until the first time you clean up by hand. A recording's audio file is *not* covered by the
+cascade either way, because it is not in the database:
+
+```sh
+rm -f data/audio/goals-*
+```
+````
+
 - [ ] **Step 5: Run the full check and commit**
 
 ```sh
