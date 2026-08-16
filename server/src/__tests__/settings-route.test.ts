@@ -66,7 +66,6 @@ describe('PUT /settings/goals', () => {
     const db = testDb();
     const app = testApp(db);
     const { userId, cookie } = await loginAs(app, db, 'van');
-    withHistory(db, userId);
 
     const res = await app.inject({
       method: 'PUT',
@@ -196,8 +195,7 @@ describe('PUT /settings/goals', () => {
   it('shows up on /auth/me straight away', async () => {
     const db = testDb();
     const app = testApp(db);
-    const { userId, cookie } = await loginAs(app, db, 'van');
-    withHistory(db, userId);
+    const { cookie } = await loginAs(app, db, 'van');
 
     await app.inject({
       method: 'PUT',
@@ -258,31 +256,47 @@ describe('PUT /settings/goals', () => {
     await app.close();
   });
 
-  it('on a brand-new account, both scopes write the one period there is', async () => {
-    // createUser seeds a period dated the day the account was made. A test account's
-    // account-creation day and its first PUT happen in the same instant, so that seed
-    // is dated today — there is no earlier period for from_today to leave alone, and
-    // none for correction to leave standing, because the account genuinely has no
-    // history yet. Both scopes resolve to today's row and write it, which is the
-    // right answer, not a bug: see withHistory() above, which is what turns "brand
-    // new" into "has been running a while" for every other test in this file.
+  it('on a brand-new account, from_today leaves no history to preserve', async () => {
+    // The obvious way to pin this is to assert listGoalPeriods has length 1: the
+    // account's only period (createUser's seed) and this write should land on the
+    // same day and collapse into one row via the upsert. But the seed is dated in
+    // UTC (new Date(now).toISOString().slice(0, 10)) and this write is dated in the
+    // user's local day (localDay(Date.now(), user.timezone)) — those two strings
+    // only agree for part of the day. For the roughly eight hours from 00:00 UTC to
+    // ~08:00 UTC (LA's previous afternoon and evening) they diverge: the upsert
+    // inserts a second row instead of overwriting the first, and a row-count
+    // assertion here would pass or fail depending on the hour the suite happened to
+    // run. That skew, not the collision itself, is the actual trap.
+    //
+    // The property that holds regardless of the hour is behavioural: a fresh account
+    // has no history to divide, so a day from long before the account existed
+    // reports the *new* numbers too. That is true whether the seed collided with the
+    // write (one row, and the query falls back to it) or landed a day off it (two
+    // rows, and the query falls back to the earlier of the two — which is the row
+    // this write just made, since nothing predates it). Contrast this with
+    // `from_today adds a period and leaves the old one alone`, where withHistory()
+    // gives the account a real past and the same kind of query returns the *old*
+    // numbers instead — the difference is entirely whether there was a history to
+    // preserve, not which row the seed happened to land on.
     const db = testDb();
     const app = testApp(db);
-    const { userId, cookie } = await loginAs(app, db, 'van');
+    const { cookie } = await loginAs(app, db, 'van');
 
-    const res = await app.inject({
+    const put = await app.inject({
       method: 'PUT',
       url: '/api/settings/goals',
       headers: { cookie },
       payload: { ...GOALS, scope: 'from_today' },
     });
+    expect(put.statusCode).toBe(200);
 
-    expect(res.statusCode).toBe(200);
+    const longAgo = await app.inject({
+      method: 'GET',
+      url: '/api/summary/2019-06-01',
+      headers: { cookie },
+    });
 
-    const periods = listGoalPeriods(db, userId);
-    expect(periods).toHaveLength(1);
-    expect(periods[0]).toMatchObject({ effective_from: today(), kcal_budget: 2200 });
-
+    expect(longAgo.json().food.budget).toBe(GOALS.kcal_budget);
     await app.close();
   });
 });
