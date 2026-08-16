@@ -25,17 +25,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          # Matches the version this is developed on, deliberately. better-sqlite3 is a
-          # native module and ships prebuilt binaries per Node ABI; 11.10 has none for
-          # Node 24, so this compiles it from source and the job takes a couple of
-          # minutes longer than it otherwise would. That is the price of CI exercising
-          # the same binary the developer does. Dropping to Node 22 would hit a prebuild
-          # and be faster, at the cost of testing something other than what is run.
-          node-version: '24'
+          # Node 22 LTS, not the 24 this is developed on, and not by preference.
+          #
+          # better-sqlite3 ships prebuilt binaries per Node ABI and 11.10 has none for
+          # Node 24, so on 24 it compiles from source — and the binary that produces
+          # crashes the vitest worker on Linux during teardown, an assertion failure in
+          # Statement's destructor calling node::RemoveEnvironmentCleanupHook with a
+          # null environment. The suite never reaches a verdict. macOS on Node 24 is
+          # unaffected, which is why local runs are green.
+          #
+          # An LTS is the better target anyway: it is what the VPS will run. If Node is
+          # ever pinned for this project, pin it to what this line says.
+          node-version: '22'
           cache: npm
           # There is no lockfile at the root: the root package.json only aggregates
           # scripts and has no dependencies of its own. The two real ones are here.
