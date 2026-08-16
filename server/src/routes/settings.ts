@@ -1,8 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppOptions } from '../app';
 import { localDay } from '../domain/day';
+import { FEATURE_KEYS, type Features } from '../domain/features';
 import { goalsForDay, validateGoals, type Goals } from '../domain/goals';
-import { listGoalPeriods, putGoalPeriod } from '../store';
+import { listGoalPeriods, putGoalPeriod, setFeatures, getPlan, setPlan } from '../store';
+
+/** Longer than anyone reads at arms length on a phone, and short of a paste accident. */
+const PLAN_MAX_CHARS = 50_000;
 
 /**
  * How far back an edit reaches.
@@ -59,6 +63,47 @@ export function registerSettingsRoutes(app: FastifyInstance, opts: AppOptions): 
       putGoalPeriod(opts.db, user.id, { effective_from, ...saved });
 
       return { goals: saved };
+    },
+  );
+
+  app.put<{ Body: Record<string, unknown> }>(
+    '/settings/features',
+    { preHandler: app.requireUser },
+    async (request, reply) => {
+      const body = request.body ?? {};
+
+      // Built key by key from FEATURE_KEYS rather than taken wholesale, so a body
+      // missing one is a 400 and an unrecognised one simply never arrives.
+      const features = {} as Features;
+      for (const key of FEATURE_KEYS) {
+        if (typeof body[key] !== 'boolean') {
+          return reply.code(400).send({ error: `${key} must be true or false` });
+        }
+        features[key] = body[key] as boolean;
+      }
+
+      setFeatures(opts.db, request.user!.id, features);
+      return { features };
+    },
+  );
+
+  app.get('/settings/plan', { preHandler: app.requireUser }, async (request) => ({
+    plan: getPlan(opts.db, request.user!.id),
+  }));
+
+  app.put<{ Body: { plan?: unknown } }>(
+    '/settings/plan',
+    { preHandler: app.requireUser },
+    async (request, reply) => {
+      const plan = (request.body ?? {}).plan;
+
+      if (typeof plan !== 'string') return reply.code(400).send({ error: 'plan must be text' });
+      if (plan.length > PLAN_MAX_CHARS) {
+        return reply.code(400).send({ error: `plan must be under ${PLAN_MAX_CHARS} characters` });
+      }
+
+      setPlan(opts.db, request.user!.id, plan);
+      return { plan };
     },
   );
 }

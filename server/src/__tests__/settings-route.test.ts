@@ -300,3 +300,207 @@ describe('PUT /settings/goals', () => {
     await app.close();
   });
 });
+
+const ALL_ON = { food: true, exercise: true, sleep: true, weight: true, goals: true };
+
+describe('PUT /settings/features', () => {
+  it('rejects an anonymous caller', async () => {
+    const db = testDb();
+    const app = testApp(db);
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/settings/features',
+      payload: ALL_ON,
+    });
+
+    expect(res.statusCode).toBe(401);
+    await app.close();
+  });
+
+  it('starts with everything on', async () => {
+    const db = testDb();
+    const app = testApp(db);
+    const { cookie } = await loginAs(app, db, 'van');
+
+    const me = await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie } });
+    expect(me.json().user.features).toEqual(ALL_ON);
+    await app.close();
+  });
+
+  it('remembers a feature going off, and coming back', async () => {
+    const db = testDb();
+    const app = testApp(db);
+    const { cookie } = await loginAs(app, db, 'van');
+
+    await app.inject({
+      method: 'PUT',
+      url: '/api/settings/features',
+      headers: { cookie },
+      payload: { ...ALL_ON, exercise: false },
+    });
+
+    let me = await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie } });
+    expect(me.json().user.features.exercise).toBe(false);
+
+    await app.inject({
+      method: 'PUT',
+      url: '/api/settings/features',
+      headers: { cookie },
+      payload: ALL_ON,
+    });
+
+    me = await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie } });
+    expect(me.json().user.features.exercise).toBe(true);
+    await app.close();
+  });
+
+  it('rejects a body missing a feature rather than guessing at it', async () => {
+    const db = testDb();
+    const app = testApp(db);
+    const { cookie } = await loginAs(app, db, 'van');
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/settings/features',
+      headers: { cookie },
+      payload: { food: true, exercise: true, sleep: true, weight: true },
+    });
+
+    expect(res.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it('does not let an unrecognised key through', async () => {
+    const db = testDb();
+    const app = testApp(db);
+    const { cookie } = await loginAs(app, db, 'van');
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/settings/features',
+      headers: { cookie },
+      payload: { ...ALL_ON, mood: false },
+    });
+
+    expect(res.json().features).toEqual(ALL_ON);
+    await app.close();
+  });
+
+  it('does not touch another account', async () => {
+    const db = testDb();
+    const app = testApp(db);
+    const van = await loginAs(app, db, 'van');
+    const sam = await loginAs(app, db, 'sam');
+
+    await app.inject({
+      method: 'PUT',
+      url: '/api/settings/features',
+      headers: { cookie: van.cookie },
+      payload: { ...ALL_ON, sleep: false },
+    });
+
+    const me = await app.inject({
+      method: 'GET',
+      url: '/api/auth/me',
+      headers: { cookie: sam.cookie },
+    });
+    expect(me.json().user.features.sleep).toBe(true);
+    await app.close();
+  });
+});
+
+describe('the plan', () => {
+  it('is empty for a new account', async () => {
+    const db = testDb();
+    const app = testApp(db);
+    const { cookie } = await loginAs(app, db, 'van');
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/settings/plan',
+      headers: { cookie },
+    });
+
+    expect(res.json()).toEqual({ plan: '' });
+    await app.close();
+  });
+
+  it('round-trips what was written', async () => {
+    const db = testDb();
+    const app = testApp(db);
+    const { cookie } = await loginAs(app, db, 'van');
+
+    const plan = '## Calories\n\n- About 2400 a day.';
+    const put = await app.inject({
+      method: 'PUT',
+      url: '/api/settings/plan',
+      headers: { cookie },
+      payload: { plan },
+    });
+
+    expect(put.json()).toEqual({ plan });
+
+    const get = await app.inject({
+      method: 'GET',
+      url: '/api/settings/plan',
+      headers: { cookie },
+    });
+    expect(get.json().plan).toBe(plan);
+    await app.close();
+  });
+
+  it('rejects a plan that is not a string', async () => {
+    const db = testDb();
+    const app = testApp(db);
+    const { cookie } = await loginAs(app, db, 'van');
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/settings/plan',
+      headers: { cookie },
+      payload: { plan: 42 },
+    });
+
+    expect(res.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it('rejects a plan far longer than anyone reads at arms length', async () => {
+    const db = testDb();
+    const app = testApp(db);
+    const { cookie } = await loginAs(app, db, 'van');
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/settings/plan',
+      headers: { cookie },
+      payload: { plan: 'x'.repeat(50_001) },
+    });
+
+    expect(res.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it('is not readable from another account', async () => {
+    const db = testDb();
+    const app = testApp(db);
+    const van = await loginAs(app, db, 'van');
+    const sam = await loginAs(app, db, 'sam');
+
+    await app.inject({
+      method: 'PUT',
+      url: '/api/settings/plan',
+      headers: { cookie: van.cookie },
+      payload: { plan: '## Mine' },
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/settings/plan',
+      headers: { cookie: sam.cookie },
+    });
+    expect(res.json().plan).toBe('');
+    await app.close();
+  });
+});

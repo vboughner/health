@@ -7,6 +7,7 @@
  */
 import type { Db } from './db';
 import { classify } from './domain/processed';
+import { FEATURE_COLUMNS, FEATURE_KEYS, type Features } from './domain/features';
 import type { Nutrition } from './domain/nutrition';
 import type { GoalPeriod } from './domain/goals';
 
@@ -647,4 +648,26 @@ export function putGoalPeriod(db: Db, userId: number, period: GoalPeriod): void 
        window_start = excluded.window_start,
        window_end   = excluded.window_end`,
   ).run({ user_id: userId, ...period });
+}
+
+// ---------------------------------------------------------------- account settings
+
+/** Write all five toggles at once. Reading them is part of getUserById. */
+export function setFeatures(db: Db, userId: number, features: Features): void {
+  const assignments = FEATURE_KEYS.map((key) => `${FEATURE_COLUMNS[key]} = ?`).join(', ');
+  const values = FEATURE_KEYS.map((key) => (features[key] ? 1 : 0));
+
+  db.prepare(`UPDATE users SET ${assignments} WHERE id = ?`).run(...values, userId);
+}
+
+/** The plan prose. Kept off the User because it loads on every authenticated request. */
+export function getPlan(db: Db, userId: number): string {
+  const row = db.prepare('SELECT plan_md FROM users WHERE id = ?').get(userId) as
+    { plan_md: string } | undefined;
+
+  return row?.plan_md ?? '';
+}
+
+export function setPlan(db: Db, userId: number, plan: string): void {
+  db.prepare('UPDATE users SET plan_md = ? WHERE id = ?').run(plan, userId);
 }

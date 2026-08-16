@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { hash, verify } from '@node-rs/argon2';
 import type { Db } from './db';
+import { FEATURE_COLUMNS, FEATURE_KEYS, type Features } from './domain/features';
 import { DEFAULT_GOALS } from './domain/goals';
 import { putGoalPeriod } from './store';
 
@@ -11,9 +12,29 @@ export interface User {
   id: number;
   username: string;
   timezone: string;
+  features: Features;
 }
 
-const USER_COLUMNS = 'id, username, timezone';
+const USER_COLUMNS = `id, username, timezone, ${FEATURE_KEYS.map((k) => FEATURE_COLUMNS[k]).join(', ')}`;
+
+type UserRow = { id: number; username: string; timezone: string } & Record<string, number>;
+
+/**
+ * The five feature flags ride along on the user row because getSessionUser calls this
+ * on every authenticated request. Five integers on a row already being fetched are
+ * free; the goals are a second table and the plan can run to kilobytes, so neither is
+ * here. Routes that need those ask for them.
+ */
+function toUser(row: UserRow): User {
+  return {
+    id: row.id,
+    username: row.username,
+    timezone: row.timezone,
+    features: Object.fromEntries(
+      FEATURE_KEYS.map((key) => [key, !!row[FEATURE_COLUMNS[key]]]),
+    ) as Features,
+  };
+}
 
 export function hashPassword(password: string): Promise<string> {
   return hash(password);
@@ -60,7 +81,10 @@ export async function createUser(db: Db, username: string, password: string): Pr
 }
 
 export function getUserById(db: Db, id: number): User | undefined {
-  return db.prepare(`SELECT ${USER_COLUMNS} FROM users WHERE id = ?`).get(id) as User | undefined;
+  const row = db.prepare(`SELECT ${USER_COLUMNS} FROM users WHERE id = ?`).get(id) as
+    UserRow | undefined;
+
+  return row ? toUser(row) : undefined;
 }
 
 export async function authenticate(
