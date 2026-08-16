@@ -1,4 +1,5 @@
-import type { User } from './types';
+import type { Goals, User } from './types';
+import type { Settings } from './settings';
 
 /** Thrown for any non-2xx response. `status` lets callers treat 401 as "log in again". */
 export class ApiError extends Error {
@@ -68,7 +69,14 @@ export const api = {
   postBlob,
 
   login: (username: string, password: string) =>
-    request<{ user: User }>('POST', '/auth/login', { username, password }),
+    request<{ user: User; goals: Goals }>('POST', '/auth/login', { username, password }),
   logout: () => request<{ ok: true }>('POST', '/auth/logout'),
-  me: () => request<{ user: User }>('GET', '/auth/me'),
+  me: () => request<{ user: User; goals: Goals }>('GET', '/auth/me'),
+
+  putFeatures: (features: Settings) =>
+    request<{ features: Settings }>('PUT', '/settings/features', features),
+  putGoals: (goals: Goals, scope: 'from_today' | 'correction') =>
+    request<{ goals: Goals }>('PUT', '/settings/goals', { ...goals, scope }),
+  getPlan: () => request<{ plan: string }>('GET', '/settings/plan'),
+  putPlan: (plan: string) => request<{ plan: string }>('PUT', '/settings/plan', { plan }),
 };

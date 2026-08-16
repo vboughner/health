@@ -281,6 +281,14 @@ textarea:focus {
   gap: 12px;
 }
 
+/* A tighter .stack, for a short question and its own row of buttons rather than
+   a page's worth of cards. */
+.stack-tight {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 /* ---------- buttons ---------- */
 
 .btn {
@@ -928,6 +936,46 @@ textarea:focus {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-faint);
+  /* Only takes effect inside a .field-row, where it shares the line with an
+     input and needs to claim the leading space rather than hug its own text. */
+  flex: 1;
+}
+
+/* A settings value edited as one line — label, input and unit together — rather
+   than the label-above-input layout .field-grid uses for a food's serving
+   details. Same gap and row shape as .row, just named for what it holds. */
+.field-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.field-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.field-input input {
+  width: 96px;
+  text-align: right;
+}
+
+.field-input input[type='time'] {
+  width: 112px;
+  text-align: left;
+}
+
+.field-unit {
+  color: var(--text-faint);
+  font-size: 13px;
 }
 
 /* ---------- toast ---------- */

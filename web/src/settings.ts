@@ -1,14 +1,14 @@
 /**
- * Which parts of the day this phone bothers to track.
+ * Which parts of the day this account tracks.
  *
  * Turning one off only hides it. Nothing is deleted and nothing stops being
  * recorded server-side, so switching a feature back on brings its history with it —
  * these are a question about what is worth looking at, not about what is true.
  *
- * Stored on the device rather than on the user, which is the same call the
- * collapsible cards make: it is about this screen, and moving it to the server
- * later is a migration and a route, not a rewrite. Say so if it ever needs to
- * follow you between devices.
+ * Stored on the account rather than on the device. It used to be the other way and
+ * that was a deliberate choice; it is deliberately reversed, because one account
+ * should mean one set of settings on every device you sign into. The values ride
+ * along on the user from /auth/me; this module is now the list and the arithmetic.
  */
 export interface Settings {
   /** The calorie header, the food list, macros, and the eating window. */
@@ -63,46 +63,20 @@ export function nothingTracked(settings: Settings): boolean {
   return FEATURES.every((f) => !settings[f.key]);
 }
 
-const KEY = 'health:settings';
+const LEGACY_KEY = 'health:settings';
 
 /**
- * Anything unreadable reads as the defaults. A corrupt or half-written value should
- * cost you the preference, never the screen — and everything on is the state the app
- * shipped in, so falling back to it can only ever show too much, never too little.
+ * Remove the per-device copy this app used to keep.
+ *
+ * The toggles that were on a phone before this change are not adopted — the server's
+ * defaults win, and five checkboxes are seconds to re-set once. Deleting the key is
+ * what stops a stale value from ever being read again.
  */
-export function readSettings(): Settings {
+export function clearLegacySettings(): void {
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return DEFAULT_SETTINGS;
-
-    const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== 'object' || parsed === null) return DEFAULT_SETTINGS;
-
-    const source = parsed as Record<string, unknown>;
-    // Key by key, so a stored blob written by an older version — or a newer one
-    // with a feature this build has never heard of — still yields a whole object.
-    return {
-      food: bool(source.food),
-      exercise: bool(source.exercise),
-      sleep: bool(source.sleep),
-      weight: bool(source.weight),
-      goals: bool(source.goals),
-    };
+    localStorage.removeItem(LEGACY_KEY);
   } catch {
-    return DEFAULT_SETTINGS;
+    // Private mode and similar can throw. A key that will not clear is not worth a
+    // screen that will not render.
   }
-}
-
-export function writeSettings(settings: Settings): void {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(settings));
-  } catch {
-    // Private mode and similar can throw. A preference that will not stick is
-    // better than a screen that will not render.
-  }
-}
-
-/** Only an explicit false turns a feature off; a missing key means "not chosen yet". */
-function bool(value: unknown): boolean {
-  return value !== false;
 }
