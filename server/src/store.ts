@@ -561,3 +561,56 @@ export function dailyEntriesInRange(
     no_dairy: !!row.no_dairy,
   }));
 }
+
+export interface GoalRecording {
+  filename: string;
+  mime: string;
+  bytes: number;
+  duration_ms: number;
+  recorded_at: number;
+}
+
+export function getGoalRecording(db: Db, userId: number): GoalRecording | undefined {
+  return db
+    .prepare(
+      `SELECT filename, mime, bytes, duration_ms, recorded_at
+         FROM goal_recordings
+        WHERE user_id = ?`,
+    )
+    .get(userId) as GoalRecording | undefined;
+}
+
+/**
+ * Writes the row and returns whatever it replaced.
+ *
+ * The return value is the point: the caller is holding a file it has just written and
+ * needs to know which older file is now unreferenced. Reading it here, inside the same
+ * call that overwrites it, is the only moment both are knowable.
+ */
+export function putGoalRecording(
+  db: Db,
+  userId: number,
+  rec: GoalRecording,
+): GoalRecording | undefined {
+  const previous = getGoalRecording(db, userId);
+
+  db.prepare(
+    `INSERT INTO goal_recordings (user_id, filename, mime, bytes, duration_ms, recorded_at)
+     VALUES (@user_id, @filename, @mime, @bytes, @duration_ms, @recorded_at)
+     ON CONFLICT(user_id) DO UPDATE SET
+       filename    = excluded.filename,
+       mime        = excluded.mime,
+       bytes       = excluded.bytes,
+       duration_ms = excluded.duration_ms,
+       recorded_at = excluded.recorded_at`,
+  ).run({ user_id: userId, ...rec });
+
+  return previous;
+}
+
+/** Returns the row that was removed, so its file can be removed too. */
+export function deleteGoalRecording(db: Db, userId: number): GoalRecording | undefined {
+  const previous = getGoalRecording(db, userId);
+  if (previous) db.prepare('DELETE FROM goal_recordings WHERE user_id = ?').run(userId);
+  return previous;
+}
