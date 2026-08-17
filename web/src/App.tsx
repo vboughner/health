@@ -44,10 +44,18 @@ export function App() {
     async (next: SettingsValue) => {
       if (!user) return;
 
-      // The user object from this render is what gets put back on failure. Capturing
-      // it inside a setUser updater instead would be wrong: StrictMode runs updaters
-      // twice in dev, and the second run would read the already-flipped value and
-      // "restore" the change rather than undo it.
+      // The user object from this render is what gets put back on failure.
+      //
+      // Reaching for `setUser(prev => ...)` and stashing `prev` in an outer variable
+      // to roll back to would make the updater impure, which React does not allow:
+      // updaters may be run more than once and replayed against a different base
+      // state, so what got stashed is not reliably what was on screen when the request
+      // went out. Closing over this render's value has none of that doubt.
+      //
+      // (An earlier version of this comment blamed StrictMode's double-invoke for
+      // feeding the first call's output into the second. It does not — both calls see
+      // the same base state, measured on React 19. The reason to avoid the updater is
+      // purity, not that.)
       setUser({ ...user, features: next });
 
       try {
