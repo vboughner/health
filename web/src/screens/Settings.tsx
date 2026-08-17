@@ -63,11 +63,6 @@ export function Settings({
 
       <GoalsForm goals={goals} tracked={settings} onSave={onSaveGoals} />
 
-      <div className="tiny faint">
-        These are settings for your account, not for this phone — they follow you to every device
-        you sign in from, which means saving one needs a connection.
-      </div>
-
       {/* Last on the page. Spaced by the stack alone, like everything else here. */}
       <div className="row row-end">
         <button className="btn-ghost tiny" onClick={onLogout}>
