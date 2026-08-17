@@ -2,7 +2,7 @@
 
 ## Context
 
-`Personal/Mid-2026 Goals.md` sets a concentrated 2-month push to cut body fat: 2400 cal/day intake, ~960 cal/day burned, a 9am–7pm eating window, and a whole-foods / no-meat / no-dairy diet. The note's own lesson from past attempts is *"record what I eat and my exercise daily — measure it and it will improve."* Generic fitness apps don't fit this plan well: they don't model an eating window, don't nudge on refined/processed ingredients, and don't put sleep, weight, exercise and the daily check-in on one screen.
+`Personal/Mid-2026 Goals.md` set a concentrated 2-month push to cut body fat: 2400 cal/day intake, ~960 cal/day burned, a 9am–7pm eating window, and a whole-foods / no-meat / no-dairy diet. The note's own lesson from past attempts is *"record what I eat and my exercise daily — measure it and it will improve."* Generic fitness apps don't fit this plan well: they don't model an eating window, don't nudge on refined/processed ingredients, and don't put sleep, weight, exercise and the daily check-in on one screen. That note is where these numbers came from, not where they live: v1 stored them as fixed columns on `users`, but the app has since grown its own per-account goal history and plan text, so a second account is not reading anyone's vault.
 
 So: a phone-friendly PWA, built and used locally first, then deployed to the existing Hetzner VPS at `health.hovercloud.com` alongside Griljor and the blog.
 
@@ -14,7 +14,7 @@ So: a phone-friendly PWA, built and used locally first, then deployed to the exi
 | Repo | New private repo `~/dev/health` (GitHub `vboughner/health`) |
 | Domain | `health.hovercloud.com` (deploy phase only) |
 | Auth | Real password login in v1, `user_id` on every table |
-| Exercise | MET-based estimate as the default, plus a "from watch" field that overrides and is marked *measured* |
+| Exercise | Activity and duration; calories are a MET-based estimate scaled by current body weight |
 | USDA | Van gets a free FoodData Central key; manual food entry works without it |
 | Deferred to v2 | Daily YouTube inspiration video (schema leaves room, no code) |
 
@@ -42,18 +42,24 @@ Read from `~/dev/griljor` and `~/dev/ai-blog`:
 │   │   ├── db.ts           better-sqlite3 handle + migration runner
 │   │   ├── migrations/     001_init.sql, 002_….sql
 │   │   ├── auth.ts         argon2 hashing, session cookie, requireUser hook
-│   │   ├── routes/         auth.ts, foods.ts, log.ts, day.ts, summary.ts, trends.ts
+│   │   ├── routes/         auth.ts, settings.ts, foods.ts, log.ts, day.ts, summary.ts,
+│   │   │                   trends.ts, goals.ts
 │   │   ├── usda.ts         FoodDataCentral client behind a small interface
 │   │   └── domain/         PURE functions — no I/O, heavily unit tested
 │   │       ├── nutrition.ts   serving → kcal/macros, macro percentages
 │   │       ├── exercise.ts    MET table → estimated kcal
 │   │       ├── processed.ts   processed-food classifier
+│   │       ├── goals.ts       goal defaults, validation, which period covers a day
+│   │       ├── features.ts    the tracked-feature list and its columns
 │   │       └── day.ts         day boundaries in user tz, eating-window derivation
 │   └── ecosystem.config.js
 ├── web/                    Vite + React + TS PWA
 │   └── src/
-│       ├── screens/        Today.tsx, AddFood.tsx, Trends.tsx, Login.tsx
-│       ├── components/     RingGauge, MacroBar, WindowBar, FoodRow, WarningChip
+│       ├── screens/        Today.tsx, Goals.tsx, AddFood.tsx, Trends.tsx,
+│       │                   Settings.tsx, Login.tsx
+│       ├── components/     MacroBar, WindowBar, FoodRow, GoalsForm, PlanEditor,
+│       │                   NothingTracked, charts.tsx
+│       ├── markdown.ts     the plan's three-rule subset → blocks to render
 │       └── api.ts          typed fetch wrapper (credentials: 'include')
 ├── scripts/rebuild-restart-production.sh
 ├── docs/                   design doc, deployment notes
@@ -62,11 +68,16 @@ Read from `~/dev/griljor` and `~/dev/ai-blog`:
 
 `domain/` is the point of the layout: all the interesting math is pure and testable without a server or a database. Routes stay thin — parse, call domain, persist, return.
 
-### Data model (`001_init.sql`)
+### Data model (current schema)
 
 ```
-users             id, username, password_hash, timezone, daily_kcal_budget (2400),
-                  daily_burn_target (960), window_start ('09:00'), window_end ('19:00'), created_at
+users             id, username, password_hash, timezone, created_at,
+                  track_food, track_exercise, track_sleep, track_weight, track_goals (all 1),
+                  plan_md ('')
+goal_periods      id, user_id, effective_from (YYYY-MM-DD), kcal_budget, burn_target,
+                  window_start, window_end
+                  -- UNIQUE(user_id, effective_from); goalsForDay picks the latest period
+                  -- on or before a day, falling back to the earliest
 sessions          token PK, user_id, expires_at            -- server-side, revocable
 foods             id, user_id NULL, source ('usda'|'manual'), source_id, name, brand,
                   serving_desc, serving_grams, kcal_per_100g, protein_g, fat_g, carb_g,
@@ -76,10 +87,10 @@ foods             id, user_id NULL, source ('usda'|'manual'), source_id, name, b
 food_log          id, user_id, food_id, eaten_at (epoch ms), local_day (YYYY-MM-DD),
                   quantity, unit, grams, kcal, protein_g, fat_g, carb_g
                   -- nutrition SNAPSHOTTED at log time so history never rewrites itself
-exercise_log      id, user_id, local_day, activity, minutes, kcal,
-                  source ('estimated'|'measured'), note
+exercise_log      id, user_id, local_day, activity, minutes, kcal
+                  -- kcal is always a MET estimate scaled by body weight
 daily_entries     id, user_id, local_day UNIQUE(user_id,local_day), weight_lb,
-                  sleep_start, sleep_end, goals_reviewed, no_meat, no_dairy, note
+                  sleep_start, sleep_end, goals_reviewed
                   -- 002 folded reviewed_morning/reviewed_night into goals_reviewed
 schema_migrations version, applied_at
 ```
@@ -99,14 +110,18 @@ Timestamps are stored as UTC epoch millis plus a denormalized `local_day` comput
 | `GET /day/:date`, `PUT /day/:date` | weight, sleep, goals-reviewed flag |
 | `GET /summary/:date` | **one call powering the whole Today screen** |
 | `GET /trends?days=30` | arrays for the charts |
+| `PUT /settings/goals` | edit `goal_periods`, `from_today` or `correction` scope |
+| `PUT /settings/features` | which of food / exercise / sleep / weight / goals this account tracks |
+| `GET /settings/plan`, `PUT /settings/plan` | the account's own markdown plan, read on the Goals tab |
 
 ### Screens
 
-1. **Day** (default) — calories eaten / remaining against 2400; macro % bar; eating-window bar showing first and last bite against 9–7, with the target and a met/not-met verdict on one line; today's entries; exercise burned vs 960; weight and sleep. Arrows and a date picker step to any past day, which stays editable.
+1. **Day** (default) — calories eaten / remaining against the day's budget; macro % bar; eating-window bar showing first and last bite against the account's window, with the target and a met/not-met verdict on one line; today's entries; exercise burned vs the account's burn target; weight and sleep. Arrows and a date picker step to any past day, which stays editable. Budget, burn target and window are per-account and effective-dated (`goal_periods`), not fixed numbers.
 2. **Add food** — one search box over saved foods + USDA, results carry a ⚠ chip if flagged; pick → serving/quantity → live kcal/macro preview → log. Amber banner if the food is flagged. Manual-entry escape hatch.
-3. **Trends** — weight line with a trend fit, daily calories vs the 2400 line, eating-window and goals-reviewed compliance strips, goal-review streak. 14 / 30 / 90 day toggle.
-4. **Goals** — "The Plan" from the vault note, with a button confirming you have read it today.
-5. **Login** — username + password.
+3. **Trends** — weight line with a trend fit, daily calories vs the budget in force on each day, eating-window and goals-reviewed compliance strips, goal-review streak. 14 / 30 / 90 day toggle.
+4. **Goals** — the account's own plan, edited here as markdown and read back on this screen, with a button confirming you have read it today.
+5. **Settings** — the goals form (calorie budget, burn target, eating window), edited as either `from_today` (starts a new period, leaves history alone) or `correction` (rewrites the period covering today in place); which of food / exercise / sleep / weight / goals this account tracks; log out. All of it lives on the account, not the device, so a change here follows you to every phone you sign in from.
+6. **Login** — username + password.
 
 ### Processed-food classifier (`domain/processed.ts`)
 
@@ -120,7 +135,7 @@ USDA Foundation / SR-Legacy entries (raw whole foods — the bulk of this diet) 
 
 ### Exercise estimate (`domain/exercise.ts`)
 
-`kcal = MET × 3.5 × weightKg / 200 × minutes`, MET table: running 9.8, climbing 8.0, weights 5.0, walking 3.5, cycling 7.5, other 5.0. Weight comes from the most recent `daily_entries.weight_lb`. A watch number entered in the "measured" field replaces the estimate and is tagged so trends can distinguish the two.
+`kcal = MET × 3.5 × weightKg / 200 × minutes`, MET table: running 9.8, climbing 8.0, weights 5.0, walking 3.5, cycling 7.5, other 5.0. Weight comes from the most recent `daily_entries.weight_lb`, and logging exercise fails without one — an estimate is the only source of a calorie figure, so there is nothing to fall back on. A "from watch" field once overrode the estimate and tagged the row *measured*; the form stopped asking, so no real row was ever measured, and migration 007 dropped the column with it.
 
 ---
 
@@ -163,9 +178,9 @@ Each phase ends in something runnable. Tests are written alongside, per the gril
 **Manual, local, before any deploy:**
 1. `./dev.sh`, create a user, log in.
 2. Search a food Van actually eats (banana, brown rice, black beans, tempeh) against the real USDA key — confirm sane calories and macros.
-3. Log a full realistic day; check totals, remaining-against-2400, macro split, and that the eating window bar reflects the first and last entry times.
+3. Log a full realistic day; check totals, remaining against the calorie budget set in Settings, macro split, and that the eating window bar reflects the first and last entry times.
 4. Log something refined (white bread, a packaged snack) — confirm the amber banner and the persistent ⚠ chip on that food in later searches.
-5. Enter a climbing session by duration and confirm the estimate; then enter a watch number and confirm it overrides and is marked measured.
+5. Enter a climbing session by duration and confirm the estimate. There is no watch-number field: exercise calories are always a MET estimate scaled by body weight, so a weight has to be on record first.
 6. Enter weight and sleep times; confirm hours slept computes and persists across a reload.
 7. Backfill a few days, open Trends, confirm the charts render on a phone-width viewport.
 8. Add to home screen from the phone over LAN; confirm it opens full-screen and the shell loads offline.
@@ -174,5 +189,5 @@ Each phase ends in something runnable. Tests are written alongside, per the gril
 
 ## Notes
 
-- The vault note `Personal/Mid-2026 Goals.md` gets a short pointer to the new repo once it exists; the note stays the source of truth for the *goals*, the repo for the *app*.
+- The vault note `Personal/Mid-2026 Goals.md` gets a short pointer to the new repo once it exists. It no longer stays the source of truth for the *goals* — those moved into the app, per account — but it is still where the reasoning behind the original numbers lives.
 - No changes to griljor, ai-blog, or any existing nginx/PM2 config. Port 4300 and a new subdomain keep this fully additive.

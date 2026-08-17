@@ -1,8 +1,8 @@
 import { useState, FormEvent } from 'react';
 import { api } from '../api';
-import type { User } from '../types';
+import type { Goals, User } from '../types';
 
-export function Login({ onLoggedIn }: { onLoggedIn: (user: User) => void }) {
+export function Login({ onLoggedIn }: { onLoggedIn: (user: User, goals: Goals) => void }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -14,8 +14,8 @@ export function Login({ onLoggedIn }: { onLoggedIn: (user: User) => void }) {
     setError('');
     setBusy(true);
     try {
-      const { user } = await api.login(username, password);
-      onLoggedIn(user);
+      const { user, goals } = await api.login(username, password);
+      onLoggedIn(user, goals);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not log in');
       setBusy(false);

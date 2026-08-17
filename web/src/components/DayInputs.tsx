@@ -146,10 +146,7 @@ export function BedInput({
 
 /**
  * Log a workout: activity and duration. Calories come from the MET table scaled
- * by current body weight.
- *
- * The API still accepts an explicit calorie figure and tags it as measured, but
- * the form no longer asks — one number and one dropdown is the whole interaction.
+ * by current body weight, which is the only way they are ever arrived at.
  */
 export function ExerciseInput({
   activities,

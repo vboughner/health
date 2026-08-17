@@ -10,6 +10,7 @@ import { registerDayRoutes } from './routes/day';
 import { registerSummaryRoutes } from './routes/summary';
 import { registerTrendRoutes } from './routes/trends';
 import { registerGoalRoutes } from './routes/goals';
+import { registerSettingsRoutes } from './routes/settings';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -68,6 +69,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.register(
     async (api) => {
       registerAuthRoutes(api, opts);
+      registerSettingsRoutes(api, opts);
       registerFoodRoutes(api, opts);
       registerLogRoutes(api, opts);
       registerDayRoutes(api, opts);

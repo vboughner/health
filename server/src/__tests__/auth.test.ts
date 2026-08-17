@@ -114,7 +114,8 @@ describe('auth', () => {
       });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json().user).toMatchObject({ username: 'van', daily_kcal_budget: 2400 });
+      expect(res.json().user).toMatchObject({ username: 'van' });
+      expect(res.json().goals).toMatchObject({ kcal_budget: 2400, window_start: '09:00' });
 
       const cookie = String(res.headers['set-cookie']);
       expect(cookie).toContain('sid=');

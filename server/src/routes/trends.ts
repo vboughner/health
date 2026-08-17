@@ -2,7 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import type { AppOptions } from '../app';
 import { localDay, addDays, dayRange, eatingWindow, sleepHours } from '../domain/day';
 import { weeklyTrend, movingAverage, currentStreak, complianceRate } from '../domain/trend';
-import { foodTotalsByDay, burnByDay, dailyEntriesInRange } from '../store';
+import { goalsForDay } from '../domain/goals';
+import { foodTotalsByDay, burnByDay, dailyEntriesInRange, listGoalPeriods } from '../store';
 
 const MAX_DAYS = 365;
 
@@ -42,7 +43,12 @@ export function registerTrendRoutes(app: FastifyInstance, opts: AppOptions): voi
         ]),
       );
 
+      // Loaded once for the whole range rather than per day. A range can span more than
+      // one set of goals, and every day must be judged by its own.
+      const periods = listGoalPeriods(opts.db, user.id);
+
       const rows = range.map((day) => {
+        const goals = goalsForDay(periods, day);
         const food = foodByDay.get(day);
         const entry = entries.get(day);
 
@@ -57,8 +63,8 @@ export function registerTrendRoutes(app: FastifyInstance, opts: AppOptions): voi
           ? eatingWindow(
               [food.first_eaten_at!, food.last_eaten_at!],
               user.timezone,
-              user.window_start,
-              user.window_end,
+              goals.window_start,
+              goals.window_end,
             )
           : null;
 
@@ -79,6 +85,7 @@ export function registerTrendRoutes(app: FastifyInstance, opts: AppOptions): voi
           window_last: window?.last ?? null,
           window_compliant: window?.compliant ?? null,
           goals_reviewed: hasRecord ? (entry?.goals_reviewed ?? false) : null,
+          budget: goals.kcal_budget,
         };
       });
 
@@ -92,13 +99,14 @@ export function registerTrendRoutes(app: FastifyInstance, opts: AppOptions): voi
       // counts the same days you can see.
       const reviewKnownDays = rows.filter((r) => r.goals_reviewed !== null);
       const reviewedDays = rows.filter((r) => r.goals_reviewed);
+      const current = goalsForDay(periods, today);
 
       return {
         from,
         to: today,
         days: rows,
-        budget: user.daily_kcal_budget,
-        burn_target: user.daily_burn_target,
+        budget: current.kcal_budget,
+        burn_target: current.burn_target,
         summary: {
           weight_trend_per_week: weeklyTrend(weights),
           weight_smoothed: movingAverage(weights),
@@ -109,7 +117,7 @@ export function registerTrendRoutes(app: FastifyInstance, opts: AppOptions): voi
             rows.filter((r) => r.sleep_hours !== null).map((r) => r.sleep_hours!),
           ),
           days_logged: loggedDays.length,
-          days_under_budget: loggedDays.filter((r) => r.kcal! <= user.daily_kcal_budget).length,
+          days_under_budget: loggedDays.filter((r) => r.kcal! <= r.budget).length,
           window_compliance: complianceRate(
             windowDays.length,
             windowDays.filter((r) => r.window_compliant).length,

@@ -7,10 +7,32 @@ import {
   sessionCookieOptions,
 } from '../auth';
 import type { AppOptions } from '../app';
+import { goalsForDay, type Goals } from '../domain/goals';
+import { listGoalPeriods } from '../store';
+import { localDay } from '../domain/day';
 
 interface LoginBody {
   username?: string;
   password?: string;
+}
+
+/**
+ * The goals in force today — what the Settings screen edits and the app measures by.
+ *
+ * Spelled out field by field rather than spread with effective_from dropped: the wire
+ * shape is a Goals, and an unused destructured binding is the sort of thing eslint is
+ * right to object to.
+ */
+function currentGoals(opts: AppOptions, user: { id: number; timezone: string }): Goals {
+  const today = localDay(Date.now(), user.timezone);
+  const period = goalsForDay(listGoalPeriods(opts.db, user.id), today);
+
+  return {
+    kcal_budget: period.kcal_budget,
+    burn_target: period.burn_target,
+    window_start: period.window_start,
+    window_end: period.window_end,
+  };
 }
 
 export function registerAuthRoutes(app: FastifyInstance, opts: AppOptions): void {
@@ -28,7 +50,7 @@ export function registerAuthRoutes(app: FastifyInstance, opts: AppOptions): void
 
     const token = createSession(opts.db, user.id);
     reply.setCookie(SESSION_COOKIE, token, sessionCookieOptions(opts.isProduction));
-    return { user };
+    return { user, goals: currentGoals(opts, user) };
   });
 
   app.post('/auth/logout', async (request, reply) => {
@@ -44,6 +66,6 @@ export function registerAuthRoutes(app: FastifyInstance, opts: AppOptions): void
   });
 
   app.get('/auth/me', { preHandler: app.requireUser }, async (request) => {
-    return { user: request.user };
+    return { user: request.user, goals: currentGoals(opts, request.user!) };
   });
 }

@@ -7,7 +7,9 @@
  */
 import type { Db } from './db';
 import { classify } from './domain/processed';
+import { FEATURE_COLUMNS, FEATURE_KEYS, type Features } from './domain/features';
 import type { Nutrition } from './domain/nutrition';
+import type { GoalPeriod } from './domain/goals';
 
 export interface Food {
   id: number;
@@ -331,8 +333,6 @@ export interface ExerciseEntry {
   activity: string;
   minutes: number;
   kcal: number;
-  source: 'estimated' | 'measured';
-  note: string | null;
 }
 
 export type NewExercise = Omit<ExerciseEntry, 'id'>;
@@ -340,19 +340,10 @@ export type NewExercise = Omit<ExerciseEntry, 'id'>;
 export function insertExercise(db: Db, userId: number, entry: NewExercise): number {
   const info = db
     .prepare(
-      `INSERT INTO exercise_log (user_id, local_day, logged_at, activity, minutes, kcal, source, note)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO exercise_log (user_id, local_day, logged_at, activity, minutes, kcal)
+       VALUES (?, ?, ?, ?, ?, ?)`,
     )
-    .run(
-      userId,
-      entry.local_day,
-      entry.logged_at,
-      entry.activity,
-      entry.minutes,
-      entry.kcal,
-      entry.source,
-      entry.note,
-    );
+    .run(userId, entry.local_day, entry.logged_at, entry.activity, entry.minutes, entry.kcal);
 
   return Number(info.lastInsertRowid);
 }
@@ -360,7 +351,7 @@ export function insertExercise(db: Db, userId: number, entry: NewExercise): numb
 export function listExercise(db: Db, userId: number, localDay: string): ExerciseEntry[] {
   return db
     .prepare(
-      `SELECT id, local_day, logged_at, activity, minutes, kcal, source, note
+      `SELECT id, local_day, logged_at, activity, minutes, kcal
        FROM exercise_log
        WHERE user_id = ? AND local_day = ?
        ORDER BY logged_at`,
@@ -382,24 +373,13 @@ export interface DailyEntry {
   sleep_start: number | null;
   sleep_end: number | null;
   goals_reviewed: boolean;
-  no_meat: boolean;
-  no_dairy: boolean;
-  note: string | null;
 }
 
 export type DailyEntryPatch = Partial<Omit<DailyEntry, 'local_day'>>;
 
-const DAILY_FIELDS = [
-  'weight_lb',
-  'sleep_start',
-  'sleep_end',
-  'goals_reviewed',
-  'no_meat',
-  'no_dairy',
-  'note',
-] as const;
+const DAILY_FIELDS = ['weight_lb', 'sleep_start', 'sleep_end', 'goals_reviewed'] as const;
 
-const BOOLEAN_FIELDS = new Set(['goals_reviewed', 'no_meat', 'no_dairy']);
+const BOOLEAN_FIELDS = new Set(['goals_reviewed']);
 
 interface DailyRow {
   local_day: string;
@@ -407,17 +387,13 @@ interface DailyRow {
   sleep_start: number | null;
   sleep_end: number | null;
   goals_reviewed: number;
-  no_meat: number;
-  no_dairy: number;
-  note: string | null;
 }
 
 /** An untouched day reads as all-blank rather than absent, so callers need no branch. */
 export function getDailyEntry(db: Db, userId: number, localDay: string): DailyEntry {
   const row = db
     .prepare(
-      `SELECT local_day, weight_lb, sleep_start, sleep_end, goals_reviewed,
-              no_meat, no_dairy, note
+      `SELECT local_day, weight_lb, sleep_start, sleep_end, goals_reviewed
        FROM daily_entries WHERE user_id = ? AND local_day = ?`,
     )
     .get(userId, localDay) as DailyRow | undefined;
@@ -429,18 +405,10 @@ export function getDailyEntry(db: Db, userId: number, localDay: string): DailyEn
       sleep_start: null,
       sleep_end: null,
       goals_reviewed: false,
-      no_meat: false,
-      no_dairy: false,
-      note: null,
     };
   }
 
-  return {
-    ...row,
-    goals_reviewed: !!row.goals_reviewed,
-    no_meat: !!row.no_meat,
-    no_dairy: !!row.no_dairy,
-  };
+  return { ...row, goals_reviewed: !!row.goals_reviewed };
 }
 
 /**
@@ -546,20 +514,14 @@ export function dailyEntriesInRange(
 ): DailyEntry[] {
   const rows = db
     .prepare(
-      `SELECT local_day, weight_lb, sleep_start, sleep_end, goals_reviewed,
-              no_meat, no_dairy, note
+      `SELECT local_day, weight_lb, sleep_start, sleep_end, goals_reviewed
        FROM daily_entries
        WHERE user_id = ? AND local_day BETWEEN ? AND ?
        ORDER BY local_day`,
     )
     .all(userId, from, to) as DailyRow[];
 
-  return rows.map((row) => ({
-    ...row,
-    goals_reviewed: !!row.goals_reviewed,
-    no_meat: !!row.no_meat,
-    no_dairy: !!row.no_dairy,
-  }));
+  return rows.map((row) => ({ ...row, goals_reviewed: !!row.goals_reviewed }));
 }
 
 export interface GoalRecording {
@@ -613,4 +575,59 @@ export function deleteGoalRecording(db: Db, userId: number): GoalRecording | und
   const previous = getGoalRecording(db, userId);
   if (previous) db.prepare('DELETE FROM goal_recordings WHERE user_id = ?').run(userId);
   return previous;
+}
+
+// ---------------------------------------------------------------- goal periods
+
+/** Every set of goals this account has had, oldest first. */
+export function listGoalPeriods(db: Db, userId: number): GoalPeriod[] {
+  return db
+    .prepare(
+      `SELECT effective_from, kcal_budget, burn_target, window_start, window_end
+       FROM goal_periods WHERE user_id = ? ORDER BY effective_from`,
+    )
+    .all(userId) as GoalPeriod[];
+}
+
+/**
+ * Write the goals that took effect on a day, replacing whatever started that day.
+ *
+ * An upsert rather than an insert: editing twice in one day would otherwise collide
+ * with the unique index. It is also what makes the two edit scopes converge once you
+ * have already changed something today — the period covering today *is* the period
+ * starting today, so both write this same row.
+ */
+export function putGoalPeriod(db: Db, userId: number, period: GoalPeriod): void {
+  db.prepare(
+    `INSERT INTO goal_periods
+       (user_id, effective_from, kcal_budget, burn_target, window_start, window_end)
+     VALUES (@user_id, @effective_from, @kcal_budget, @burn_target, @window_start, @window_end)
+     ON CONFLICT(user_id, effective_from) DO UPDATE SET
+       kcal_budget  = excluded.kcal_budget,
+       burn_target  = excluded.burn_target,
+       window_start = excluded.window_start,
+       window_end   = excluded.window_end`,
+  ).run({ user_id: userId, ...period });
+}
+
+// ---------------------------------------------------------------- account settings
+
+/** Write all five toggles at once. Reading them is part of getUserById. */
+export function setFeatures(db: Db, userId: number, features: Features): void {
+  const assignments = FEATURE_KEYS.map((key) => `${FEATURE_COLUMNS[key]} = ?`).join(', ');
+  const values = FEATURE_KEYS.map((key) => (features[key] ? 1 : 0));
+
+  db.prepare(`UPDATE users SET ${assignments} WHERE id = ?`).run(...values, userId);
+}
+
+/** The plan prose. Kept off the User because it loads on every authenticated request. */
+export function getPlan(db: Db, userId: number): string {
+  const row = db.prepare('SELECT plan_md FROM users WHERE id = ?').get(userId) as
+    { plan_md: string } | undefined;
+
+  return row?.plan_md ?? '';
+}
+
+export function setPlan(db: Db, userId: number, plan: string): void {
+  db.prepare('UPDATE users SET plan_md = ? WHERE id = ?').run(plan, userId);
 }

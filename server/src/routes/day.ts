@@ -17,10 +17,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 interface ExerciseBody {
   activity: string;
   minutes: number;
-  /** From a watch. When present it wins over the MET estimate and is marked measured. */
-  kcal?: number;
   date?: string;
-  note?: string | null;
 }
 
 export function registerDayRoutes(app: FastifyInstance, opts: AppOptions): void {
@@ -86,24 +83,14 @@ export function registerDayRoutes(app: FastifyInstance, opts: AppOptions): void 
       const now = Date.now();
       const day = body.date ?? localDay(now, user.timezone);
 
-      // A watch number is an observation; the MET table is a guess. Keep them labelled
-      // so the trend can show how much of the burn total is actually measured.
-      let kcal: number;
-      let source: 'estimated' | 'measured';
-
-      if (typeof body.kcal === 'number' && body.kcal >= 0) {
-        kcal = Math.round(body.kcal);
-        source = 'measured';
-      } else {
-        const weight = latestWeight(opts.db, user.id, day);
-        if (weight === null) {
-          return reply.code(400).send({
-            error: 'Record a weight first, or enter the calories from your watch',
-          });
-        }
-        kcal = estimateKcal(body.activity, body.minutes, weight);
-        source = 'estimated';
+      // Calories come from the MET table scaled by current body weight. There is no
+      // second source any more, so a weight on file is required rather than preferred.
+      const weight = latestWeight(opts.db, user.id, day);
+      if (weight === null) {
+        return reply.code(400).send({ error: 'Record a weight first' });
       }
+
+      const kcal = estimateKcal(body.activity, body.minutes, weight);
 
       const id = insertExercise(opts.db, user.id, {
         local_day: day,
@@ -111,8 +98,6 @@ export function registerDayRoutes(app: FastifyInstance, opts: AppOptions): void 
         activity: body.activity,
         minutes: body.minutes,
         kcal,
-        source,
-        note: body.note ?? null,
       });
 
       const entry = listExercise(opts.db, user.id, day).find((e) => e.id === id);

@@ -1,11 +1,19 @@
+import type { Settings } from './settings';
+
+/** What you are aiming at today. Past days are judged by what was in force then. */
+export interface Goals {
+  kcal_budget: number;
+  burn_target: number;
+  window_start: string;
+  window_end: string;
+}
+
 export interface User {
   id: number;
   username: string;
   timezone: string;
-  daily_kcal_budget: number;
-  daily_burn_target: number;
-  window_start: string;
-  window_end: string;
+  /** Which features this account tracks. Same shape as the local Settings type. */
+  features: Settings;
 }
 
 /** A food already stored — has an id, so it can be logged by reference. */
@@ -83,8 +91,6 @@ export interface ExerciseEntry {
   activity: string;
   minutes: number;
   kcal: number;
-  source: 'estimated' | 'measured';
-  note: string | null;
 }
 
 export interface Activity {
@@ -99,9 +105,6 @@ export interface DayEntry {
   sleep_start: number | null;
   sleep_end: number | null;
   goals_reviewed: boolean;
-  no_meat: boolean;
-  no_dairy: boolean;
-  note: string | null;
   sleep_hours: number | null;
 }
 
@@ -118,9 +121,6 @@ export interface DaySummary {
   exercise: {
     entries: ExerciseEntry[];
     total: number;
-    estimated: number;
-    measured: number;
-    measuredShare: number;
     target: number;
   };
   window: {

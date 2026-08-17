@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { testDb, testApp, loginAs, fakeUsda, USDA_BANANA, type Payload, type Res } from './helpers';
 import type { Db } from '../db';
-import type { DailyEntryPatch } from '../store';
+import { putGoalPeriod, type DailyEntryPatch } from '../store';
 import { localDay } from '../domain/day';
 
 const TZ = 'America/Los_Angeles';
@@ -10,6 +10,7 @@ const TZ = 'America/Los_Angeles';
 describe('GET /api/trends', () => {
   let db: Db;
   let app: FastifyInstance;
+  let userId: number;
   let cookie: string;
   let today: string;
 
@@ -17,7 +18,7 @@ describe('GET /api/trends', () => {
     db = testDb();
     app = testApp(db, fakeUsda([USDA_BANANA]));
     await app.ready();
-    ({ cookie } = await loginAs(app, db, 'van'));
+    ({ userId, cookie } = await loginAs(app, db, 'van'));
     today = localDay(Date.now(), TZ);
   });
 
@@ -95,16 +96,19 @@ describe('GET /api/trends', () => {
   });
 
   it('marks a day with only exercise as unreviewed rather than unknown', async () => {
+    // A weight on file is required to log exercise now. Set it on an earlier day so
+    // the day under test still carries nothing but the exercise itself.
+    await put(`/api/day/${daysAgo(2)}`, { weight_lb: 195 });
     await post('/api/log/exercise', {
       activity: 'running',
       minutes: 30,
-      kcal: 300,
       date: daysAgo(1),
     });
 
     const rows = (await get('/api/trends?days=7')).json().days;
     const row = rows.find((d: { day: string }) => d.day === daysAgo(1));
 
+    expect(row.weight_lb).toBeNull();
     expect(row.goals_reviewed).toBe(false);
   });
 
@@ -221,9 +225,10 @@ describe('GET /api/trends', () => {
 
   it('averages burned calories over the days with exercise', async () => {
     await put(`/api/day/${today}`, { weight_lb: 195 });
-    await post('/api/log/exercise', { activity: 'running', minutes: 30, kcal: 500, date: today });
+    await post('/api/log/exercise', { activity: 'running', minutes: 30, date: today });
 
-    expect((await get('/api/trends?days=7')).json().summary.avg_burned).toBe(500);
+    // 195 lb, 30 min running: the same MET estimate exercised elsewhere.
+    expect((await get('/api/trends?days=7')).json().summary.avg_burned).toBe(455);
   });
 
   it('reports nulls rather than zeros for averages with no data', async () => {
@@ -260,5 +265,36 @@ describe('GET /api/trends', () => {
 
     expect(res.json().summary.days_logged).toBe(0);
     expect(res.json().summary.latest_weight).toBeNull();
+  });
+
+  it('counts each day against the budget that was in force on it', async () => {
+    // The chart colours bars by the per-row budget and the caption counts
+    // days_under_budget. If those two used different numbers the page would
+    // contradict itself, which is the whole reason the budget is on the row.
+    putGoalPeriod(db, userId, {
+      effective_from: '2020-01-01',
+      kcal_budget: 3000,
+      burn_target: 960,
+      window_start: '09:00',
+      window_end: '19:00',
+    });
+    putGoalPeriod(db, userId, {
+      effective_from: today,
+      kcal_budget: 2000,
+      burn_target: 960,
+      window_start: '09:00',
+      window_end: '19:00',
+    });
+
+    // 2500 calories on each of two days: under 3000 yesterday, over 2000 today.
+    await logOn(daysAgo(1), 12, 1000, 250);
+    await logOn(today, 12, 1000, 250);
+
+    const body = (await get('/api/trends?days=2')).json();
+
+    expect(body.days.map((d: { budget: number }) => d.budget)).toEqual([3000, 2000]);
+    expect(body.summary.days_under_budget).toBe(1);
+    // The top-level figure is the current one, for the card heading.
+    expect(body.budget).toBe(2000);
   });
 });
