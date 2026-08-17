@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import type { Goals } from '../types';
+import type { Settings } from '../settings';
 
 type Scope = 'from_today' | 'correction';
+
+/** A field row, dimmed when the feature that puts it on the day is switched off. */
+function row(tracked: boolean): string {
+  return tracked ? 'field-row' : 'field-row field-row-untracked';
+}
 
 /**
  * The three numbers the day is measured against.
@@ -13,12 +19,22 @@ type Scope = 'from_today' | 'correction';
  *
  * The choice only appears once something has actually changed, and disappears again
  * on cancel — a form that asks a question about an edit nobody made is noise.
+ *
+ * A number whose feature is switched off is dimmed rather than hidden or disabled.
+ * Hiding it would make the setting look gone when it is only unwatched; disabling it
+ * would claim it no longer applies, which is untrue — the server goes on deriving the
+ * eating window from the log either way, so the figure still means something and turning
+ * the feature back on brings its whole history with it. Dimming says the one true thing:
+ * this is not being shown on the day at the moment.
  */
 export function GoalsForm({
   goals,
+  tracked,
   onSave,
 }: {
   goals: Goals;
+  /** Which features this account tracks, so a number nobody is watching can be dimmed. */
+  tracked: Settings;
   onSave: (goals: Goals, scope: Scope) => Promise<void>;
 }) {
   const [budget, setBudget] = useState(String(goals.kcal_budget));
@@ -69,8 +85,19 @@ export function GoalsForm({
     <div className="card">
       <div className="card-title card-title-tight">Goals</div>
 
+      {/* The window comes first: it is the part of the plan with a clock attached, and
+          the one most likely to be the reason you opened this card. */}
       <div className="field-rows">
-        <label className="field-row">
+        <div className={`${row(tracked.food)} field-row-stack`}>
+          <span className="field-label">Eating window</span>
+          <span className="field-input">
+            <input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
+            <span className="field-unit">to</span>
+            <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
+          </span>
+        </div>
+
+        <label className={row(tracked.food)}>
           <span className="field-label">Calorie budget</span>
           <span className="field-input">
             <input
@@ -83,7 +110,7 @@ export function GoalsForm({
           </span>
         </label>
 
-        <label className="field-row">
+        <label className={row(tracked.exercise)}>
           <span className="field-label">Burn target</span>
           <span className="field-input">
             <input
@@ -95,15 +122,6 @@ export function GoalsForm({
             <span className="field-unit">cal</span>
           </span>
         </label>
-
-        <div className="field-row">
-          <span className="field-label">Eating window</span>
-          <span className="field-input">
-            <input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
-            <span className="field-unit">to</span>
-            <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
-          </span>
-        </div>
       </div>
 
       {error && <div className="error">{error}</div>}

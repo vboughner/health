@@ -30,8 +30,9 @@ export function Settings({
     <div className="stack">
       <h1 className="screen-title">Settings</h1>
 
-      <GoalsForm goals={goals} onSave={onSaveGoals} />
-
+      {/* Track sits above Goals on purpose. The toggles decide which of the numbers
+          below are being watched at all, and a dimmed figure reads as a consequence
+          when its cause is already on screen above it — and as a glitch when it is not. */}
       <div className="card">
         <div className="card-title card-title-tight">Track</div>
         <div className="toggles">
@@ -59,6 +60,8 @@ export function Settings({
           comes back if you turn it on again.
         </div>
       </div>
+
+      <GoalsForm goals={goals} tracked={settings} onSave={onSaveGoals} />
 
       <div className="tiny faint">
         These are settings for your account, not for this phone — they follow you to every device
