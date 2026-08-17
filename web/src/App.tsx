@@ -1,14 +1,14 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api, ApiError } from './api';
 import { todayIn } from './dates';
-import type { User } from './types';
+import { clearLegacySettings, type Settings as SettingsValue } from './settings';
+import type { Goals, User } from './types';
 import { Login } from './screens/Login';
 import { Today } from './screens/Today';
 import { AddFood } from './screens/AddFood';
 import { Trends } from './screens/Trends';
-import { Goals } from './screens/Goals';
+import { Goals as GoalsScreen } from './screens/Goals';
 import { Settings } from './screens/Settings';
-import { readSettings, writeSettings, type Settings as SettingsValue } from './settings';
 
 type Tab = 'today' | 'add' | 'trends' | 'settings' | 'goals';
 
@@ -31,20 +31,57 @@ export function App() {
   // The day being viewed and logged to. Shared across tabs so that picking a past
   // day and then adding food puts the food on that day, not on today.
   const [date, setDate] = useState<string | null>(null);
-  // Read once at startup rather than on every render — nothing else on the device
-  // writes it, so the copy in state is the authority for the session.
-  const [settings, setSettings] = useState<SettingsValue>(readSettings);
+  const [goals, setGoals] = useState<Goals | null>(null);
+  const [settingsError, setSettingsError] = useState('');
 
-  const changeSettings = useCallback((next: SettingsValue) => {
-    setSettings(next);
-    writeSettings(next);
+  /**
+   * Optimistic: the toggle moves at once and the request follows, because a switch
+   * that waits for a round trip feels broken on a phone. A failure puts it back and
+   * says why — nothing is queued for later, in line with sw.js, which caches the app
+   * shell and deliberately no API writes.
+   */
+  const changeSettings = useCallback(
+    async (next: SettingsValue) => {
+      if (!user) return;
+
+      // The user object from this render is what gets put back on failure.
+      //
+      // Reaching for `setUser(prev => ...)` and stashing `prev` in an outer variable
+      // to roll back to would make the updater impure, which React does not allow:
+      // updaters may be run more than once and replayed against a different base
+      // state, so what got stashed is not reliably what was on screen when the request
+      // went out. Closing over this render's value has none of that doubt.
+      //
+      // (An earlier version of this comment blamed StrictMode's double-invoke for
+      // feeding the first call's output into the second. It does not — both calls see
+      // the same base state, measured on React 19. The reason to avoid the updater is
+      // purity, not that.)
+      setUser({ ...user, features: next });
+
+      try {
+        await api.putFeatures(next);
+        setSettingsError('');
+      } catch (err) {
+        setUser(user);
+        setSettingsError(err instanceof Error ? err.message : 'Could not save that');
+      }
+    },
+    [user],
+  );
+
+  const saveGoals = useCallback(async (next: Goals, scope: 'from_today' | 'correction') => {
+    const { goals: saved } = await api.putGoals(next, scope);
+    setGoals(saved);
   }, []);
 
   useEffect(() => {
+    clearLegacySettings();
+
     api
       .me()
-      .then(({ user }) => {
+      .then(({ user, goals }) => {
         setUser(user);
+        setGoals(goals);
         setDate(todayIn(user.timezone));
       })
       .catch((err) => {
@@ -73,12 +110,22 @@ export function App() {
     window.scrollTo(0, 0);
   }, [tab, user]);
 
-  function handleLoggedIn(next: User) {
+  // A failed toggle leaves its message on Settings until something clears it. Every
+  // tab switch goes through here rather than setTab directly, so leaving the tab and
+  // coming back never re-shows a stale error for a request that is long past and may
+  // since have succeeded.
+  const changeTab = useCallback((next: Tab) => {
+    setSettingsError('');
+    setTab(next);
+  }, []);
+
+  function handleLoggedIn(next: User, nextGoals: Goals) {
     setUser(next);
+    setGoals(nextGoals);
     setDate(todayIn(next.timezone));
     // Logging out never unmounts App, so the tab from the last session is still
     // sitting there. A new sign-in starts where the app starts.
-    setTab('today');
+    changeTab('today');
   }
 
   if (checking) {
@@ -89,7 +136,7 @@ export function App() {
     );
   }
 
-  if (!user || !date) return <Login onLoggedIn={handleLoggedIn} />;
+  if (!user || !date || !goals) return <Login onLoggedIn={handleLoggedIn} />;
 
   // Recomputed on render rather than stored, so leaving the app open past
   // midnight doesn't leave "Today" pointing at yesterday.
@@ -105,9 +152,9 @@ export function App() {
             today={today}
             onChangeDate={setDate}
             refreshKey={refreshKey}
-            settings={settings}
-            onReviewGoals={() => setTab('goals')}
-            onOpenSettings={() => setTab('settings')}
+            settings={user.features}
+            onReviewGoals={() => changeTab('goals')}
+            onOpenSettings={() => changeTab('settings')}
           />
         )}
         {tab === 'add' && (
@@ -116,18 +163,25 @@ export function App() {
         {tab === 'trends' && (
           <Trends
             refreshKey={refreshKey}
-            settings={settings}
-            onOpenSettings={() => setTab('settings')}
+            settings={user.features}
+            onOpenSettings={() => changeTab('settings')}
           />
         )}
         {tab === 'settings' && (
-          <Settings settings={settings} onChange={changeSettings} onLogout={logout} />
+          <Settings
+            settings={user.features}
+            onChange={changeSettings}
+            error={settingsError}
+            goals={goals}
+            onSaveGoals={saveGoals}
+            onLogout={logout}
+          />
         )}
         {tab === 'goals' && (
-          <Goals
+          <GoalsScreen
             date={date}
             today={today}
-            trackReview={settings.goals}
+            trackReview={user.features.goals}
             // Stays on the plan rather than bouncing back to the day — you came here
             // to read it, and the review is recorded by the reading. The bump is so
             // the day screen shows its tick when you go back yourself.
@@ -143,7 +197,7 @@ export function App() {
               key={t.id}
               className="tab"
               aria-current={tab === t.id ? 'page' : undefined}
-              onClick={() => setTab(t.id)}
+              onClick={() => changeTab(t.id)}
             >
               <span className="tab-icon">{t.icon}</span>
               {t.label}

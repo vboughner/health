@@ -281,6 +281,14 @@ textarea:focus {
   gap: 12px;
 }
 
+/* A tighter .stack, for a short question and its own row of buttons rather than
+   a page's worth of cards. */
+.stack-tight {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 /* ---------- buttons ---------- */
 
 .btn {
@@ -930,6 +938,90 @@ textarea:focus {
   color: var(--text-faint);
 }
 
+/* .field-row is a row (label, input and unit sharing one line), and its label needs
+   to claim the leading space rather than hug its own text. .field is a column
+   (label above input, AddFood's manual-food serving grid) and is also a flex
+   container, so this must stay scoped to .field-row — an unscoped flex: 1 on
+   .field-label turns every label there into a flex item with flex-basis: 0 too. */
+.field-row .field-label {
+  flex: 1;
+}
+
+/* A settings value edited as one line — label, input and unit together — rather
+   than the label-above-input layout .field-grid uses for a food's serving
+   details. Same gap and row shape as .row, just named for what it holds. */
+.field-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* A goal whose feature is switched off in Track. It is still editable and still
+   applies — the server derives the eating window from the log whichever way the
+   toggle sits — it just is not being drawn on the day, so it recedes.
+
+   Deliberately not the 0.45 that .btn:disabled uses. In this stylesheet that value
+   already means "you cannot use this", and borrowing it for a field you can still
+   type into would say the wrong thing. 0.6 reads as set aside, not shut off. */
+.field-row-untracked {
+  opacity: 0.6;
+}
+
+.field-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.field-input input {
+  width: 96px;
+  text-align: right;
+}
+
+.field-input input[type='time'] {
+  width: 112px;
+  text-align: left;
+}
+
+/* The eating window gets a line of its own, label above the inputs.
+   Chrome draws <input type="time"> in the browser's locale, which for en-US is
+   "07:00 PM" — and two of those plus a joining word will not share a 390px line with
+   a label. Squeezed onto one, the meridiem is clipped and 19:00 renders as "07:00",
+   which reads as seven in the morning: the one thing this field must never do. Wider
+   inputs cannot fix it, because there is not enough line to widen into. */
+.field-row-stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.field-row-stack .field-label {
+  flex: none;
+}
+
+.field-row-stack .field-input {
+  width: 100%;
+}
+
+/* Share the freed line evenly rather than sitting at a fixed width, so a 24-hour
+   locale — which needs less — does not leave the pair stranded against the label. */
+.field-row-stack .field-input input[type='time'] {
+  flex: 1;
+  width: auto;
+}
+
+.field-unit {
+  color: var(--text-faint);
+  font-size: 13px;
+}
+
 /* ---------- toast ---------- */
 
 .toast {
@@ -1161,6 +1253,7 @@ textarea:focus {
 
 /* The budget line — recessive, but readable against both bar colors. */
 .chart-ref {
+  fill: none;
   stroke: var(--text-faint);
   stroke-width: 1.5;
   stroke-dasharray: 4 3;
@@ -1637,6 +1730,25 @@ textarea:focus {
 
 .plan-list li::marker {
   color: var(--accent);
+}
+
+/* font-size stays at the input/select/textarea default of 16px rather than the
+   smaller size a plain block of text would use — going under it is what makes iOS
+   zoom the viewport on focus, and that rule applies to this box like every other. */
+.plan-editor {
+  width: 100%;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.plan-heading {
+  margin-top: 4px;
+}
+
+.plan-paragraph {
+  margin: 0;
 }
 
 /* Used alongside .stack, which already supplies the column layout — this only

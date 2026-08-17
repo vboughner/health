@@ -1,65 +1,20 @@
 /**
- * The plan, for reading rather than editing.
+ * The plan, read here and edited here.
  *
- * Taken verbatim from "The Plan" in Personal/Mid-2026 Goals.md. It lives here as
- * static content on purpose: the vault note stays the source of truth for the
- * goals, this is just a copy that's readable at arm's length on a phone. When the
- * note changes, this changes with it.
+ * It used to be a hardcoded copy of "The Plan" from Personal/Mid-2026 Goals.md. It is
+ * the account's own text now: a second account will want to write its own, and there
+ * is no reason it should live in someone else's vault. Keeping any outside note in
+ * step is a personal habit the app knows nothing about.
  */
 
 import { useState, useEffect } from 'react';
 import { api } from '../api';
 import { shortDayLabel } from '../dates';
+import { renderPlan } from '../markdown';
 import { GoalsPlayer } from '../components/GoalsPlayer';
 import { GoalsRecorder } from '../components/GoalsRecorder';
+import { PlanEditor } from '../components/PlanEditor';
 import type { GoalRecording } from '../types';
-
-interface Section {
-  title: string;
-  points: string[];
-}
-
-const PLAN: Section[] = [
-  {
-    title: 'Calories',
-    points: [
-      'Limit intake to about 2400 calories/day.',
-      'Exercise enough to burn ~40% of that in calories (~960 cal/day from exercise).',
-    ],
-  },
-  {
-    title: 'Eating window',
-    points: ['Only eat between 9:00 a.m. and 7:00 p.m.'],
-  },
-  {
-    title: 'Diet',
-    points: [
-      'Natural, whole foods — real foods as close as possible to how they are found in nature.',
-      'Gold standard reference: the 80/10/10 diet (mostly raw fruits and vegetables). Not going full raw, but it is the north star.',
-      'Allowances beyond raw: cooked grains like brown rice, steamed vegetables, and other relatively harmless cooked whole foods.',
-      'Lots of fruits and vegetables.',
-      'No dairy, no meat. Not going to sweat something like chicken broth in a veggie burrito — just no actual meat.',
-      'Grains okay (e.g. brown rice), but not much bread.',
-      'Avoid refined white flour, refined salt, refined sugar, and other highly processed ingredients.',
-    ],
-  },
-  {
-    title: 'Environment / logistics',
-    points: [
-      'Do not keep anything in the kitchen that I do not want to eat.',
-      'Prepare ahead for what I will eat when I go out for a drive with my mother.',
-    ],
-  },
-  {
-    title: 'Exercise',
-    points: [
-      'Increase overall exercise to hit the 40%-of-calories target above.',
-      'Keep up climbing twice a week.',
-      'Keep up running three times a week.',
-      'Add one weight workout a week.',
-    ],
-  },
-];
 
 export function Goals({
   date,
@@ -80,6 +35,37 @@ export function Goals({
   const [error, setError] = useState('');
   const [recording, setRecording] = useState<GoalRecording | null>(null);
   const [recordingError, setRecordingError] = useState('');
+  const [plan, setPlan] = useState<string | null>(null);
+  const [planError, setPlanError] = useState('');
+  const [editing, setEditing] = useState(false);
+
+  /**
+   * A third effect in the same family as the recording fetch below: its own trigger,
+   * its own failure message, so a plan that fails to load never gets blamed on the
+   * recording (or the other way around).
+   */
+  useEffect(() => {
+    let cancelled = false;
+
+    api
+      .getPlan()
+      .then(({ plan: loaded }) => {
+        if (!cancelled) setPlan(loaded);
+      })
+      .catch(() => {
+        if (!cancelled) setPlanError('Could not load your plan.');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function savePlan(next: string) {
+    const { plan: saved } = await api.putPlan(next);
+    setPlan(saved);
+    setEditing(false);
+  }
 
   /**
    * Kept apart from the review write below: that one runs on every day change, this one
@@ -141,16 +127,62 @@ export function Goals({
         <GoalsPlayer recording={recording} key={recording?.recorded_at ?? 'none'} />
       </div>
 
-      {PLAN.map((section) => (
-        <div className="card" key={section.title}>
-          <div className="card-title">{section.title}</div>
-          <ul className="plan-list">
-            {section.points.map((point) => (
-              <li key={point}>{point}</li>
-            ))}
-          </ul>
+      {planError && <div className="error">{planError}</div>}
+
+      {editing && plan !== null && (
+        <PlanEditor initial={plan} onSave={savePlan} onCancel={() => setEditing(false)} />
+      )}
+
+      {!editing && plan !== null && plan.trim() === '' && (
+        <div className="card">
+          <div className="card-title">No plan yet</div>
+          <p className="empty-note">
+            Write down what you are aiming at and it shows up here, to read at arm&rsquo;s length in
+            the morning.
+          </p>
+          <div className="row row-end">
+            <button className="btn" onClick={() => setEditing(true)}>
+              Write my plan
+            </button>
+          </div>
         </div>
-      ))}
+      )}
+
+      {!editing && plan !== null && plan.trim() !== '' && (
+        <>
+          {renderPlan(plan).map((block, i) => {
+            if (block.kind === 'heading') {
+              return (
+                <div className="card-title plan-heading" key={i}>
+                  {block.text}
+                </div>
+              );
+            }
+            if (block.kind === 'bullets') {
+              return (
+                <div className="card" key={i}>
+                  <ul className="plan-list">
+                    {block.items.map((item, j) => (
+                      <li key={j}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            }
+            return (
+              <div className="card" key={i}>
+                <p className="plan-paragraph">{block.text}</p>
+              </div>
+            );
+          })}
+
+          <div className="row row-end">
+            <button className="btn-ghost tiny" onClick={() => setEditing(true)}>
+              Edit plan
+            </button>
+          </div>
+        </>
+      )}
 
       {error && <div className="error">{error}</div>}
 

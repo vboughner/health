@@ -1,8 +1,8 @@
 /**
  * Estimating calories burned. Pure — no database, no clock.
  *
- * The standard MET formula: kcal/min = MET × 3.5 × kg / 200. It is an estimate and
- * nothing more, which is why a watch reading always wins when one is available.
+ * The standard MET formula: kcal/min = MET × 3.5 × kg / 200. Every entry is an
+ * estimate scaled by body weight — there is no other source of a calorie figure.
  */
 
 /**
@@ -43,37 +43,4 @@ export function estimateKcal(activity: ActivityId, minutes: number, weightLb: nu
   const met = ACTIVITIES[activity].met;
 
   return Math.round(((met * 3.5 * kg) / 200) * minutes);
-}
-
-export interface BurnSummary {
-  total: number;
-  estimated: number;
-  measured: number;
-  /** Share of the total that came from a watch rather than the MET table. */
-  measuredShare: number;
-}
-
-/**
- * Roll up a day's exercise, keeping estimated and measured apart so the trend can
- * show how much of the burn figure is actually observed.
- */
-export function summarizeBurn(
-  entries: { kcal: number; source: 'estimated' | 'measured' }[],
-): BurnSummary {
-  let estimated = 0;
-  let measured = 0;
-
-  for (const e of entries) {
-    if (e.source === 'measured') measured += e.kcal;
-    else estimated += e.kcal;
-  }
-
-  const total = Math.round(estimated + measured);
-
-  return {
-    total,
-    estimated: Math.round(estimated),
-    measured: Math.round(measured),
-    measuredShare: total > 0 ? Math.round((measured / total) * 100) : 0,
-  };
 }

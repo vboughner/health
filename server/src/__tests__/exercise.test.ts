@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { estimateKcal, summarizeBurn, isActivity, ACTIVITIES } from '../domain/exercise';
+import { estimateKcal, isActivity, ACTIVITIES } from '../domain/exercise';
 
 describe('estimateKcal', () => {
   it('estimates a 30 minute run at the starting weight from the goals note', () => {
@@ -65,33 +65,5 @@ describe('isActivity', () => {
     expect(isActivity('quidditch')).toBe(false);
     expect(isActivity('')).toBe(false);
     expect(isActivity('constructor')).toBe(false);
-  });
-});
-
-describe('summarizeBurn', () => {
-  it('adds up a day and keeps estimated and measured apart', () => {
-    const summary = summarizeBurn([
-      { kcal: 455, source: 'estimated' },
-      { kcal: 500, source: 'measured' },
-    ]);
-
-    expect(summary).toEqual({ total: 955, estimated: 455, measured: 500, measuredShare: 52 });
-  });
-
-  it('reports zeros for a rest day', () => {
-    expect(summarizeBurn([])).toEqual({
-      total: 0,
-      estimated: 0,
-      measured: 0,
-      measuredShare: 0,
-    });
-  });
-
-  it('reports a fully measured day as 100 percent', () => {
-    expect(summarizeBurn([{ kcal: 600, source: 'measured' }]).measuredShare).toBe(100);
-  });
-
-  it('reports a fully estimated day as 0 percent', () => {
-    expect(summarizeBurn([{ kcal: 600, source: 'estimated' }]).measuredShare).toBe(0);
   });
 });

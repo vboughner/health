@@ -289,24 +289,17 @@ function main() {
       // watched to update. Every earlier day gets one.
       sleep_end: isToday ? null : sleepEnd,
       goals_reviewed: random() < 0.8,
-      no_meat: true,
-      no_dairy: random() < 0.93,
     });
 
     const WORKOUT_HOUR = 17;
     const workout = WORKOUTS[new Date(dayMs).getDay()];
     if (workout && random() < 0.85 && !(isToday && nowHour < WORKOUT_HOUR)) {
-      const measured = random() < 0.4;
-      const estimate = estimateKcal(workout.activity, workout.minutes, reading);
-
       insertExercise(db, user.id, {
         local_day: day,
         logged_at: new Date(midnight).setHours(WORKOUT_HOUR, 30),
         activity: workout.activity,
         minutes: workout.minutes,
-        kcal: measured ? Math.round(estimate * (0.85 + random() * 0.3)) : estimate,
-        source: measured ? 'measured' : 'estimated',
-        note: null,
+        kcal: estimateKcal(workout.activity, workout.minutes, reading),
       });
     }
   }
