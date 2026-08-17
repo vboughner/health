@@ -19,12 +19,3 @@ export const FEATURE_COLUMNS: Record<FeatureKey, string> = {
   weight: 'track_weight',
   goals: 'track_goals',
 };
-
-/** Everything on — what migration 006 defaults to and what a new account gets. */
-export const DEFAULT_FEATURES: Features = {
-  food: true,
-  exercise: true,
-  sleep: true,
-  weight: true,
-  goals: true,
-};
