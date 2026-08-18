@@ -66,6 +66,8 @@ export interface FoodLogEntry extends Nutrition {
   grams: number;
   /** Snapshotted from the food, so a past entry keeps hiding its bookkeeping grams. */
   weight_unknown: boolean;
+  /** Calories were all that was recorded — the macro figures below are zeros, not facts. */
+  macros_unknown: boolean;
   processed_flags: string[];
 }
 
@@ -234,7 +236,8 @@ export function frequentFoods(db: Db, userId: number, limit = 12): Food[] {
 // ---------------------------------------------------------------- food log
 
 export interface NewFoodLog {
-  food_id: number;
+  /** Null for a quick entry: calories typed straight into the day, with no food behind them. */
+  food_id: number | null;
   food_name: string;
   eaten_at: number;
   local_day: string;
@@ -242,6 +245,7 @@ export interface NewFoodLog {
   unit: string;
   grams: number;
   weight_unknown: boolean;
+  macros_unknown?: boolean;
   nutrition: Nutrition;
 }
 
@@ -250,8 +254,9 @@ export function insertFoodLog(db: Db, userId: number, entry: NewFoodLog): number
     .prepare(
       `INSERT INTO food_log (
          user_id, food_id, food_name, eaten_at, local_day,
-         quantity, unit, grams, weight_unknown, kcal, protein_g, fat_g, carb_g
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         quantity, unit, grams, weight_unknown, macros_unknown,
+         kcal, protein_g, fat_g, carb_g
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       userId,
@@ -263,6 +268,7 @@ export function insertFoodLog(db: Db, userId: number, entry: NewFoodLog): number
       entry.unit,
       entry.grams,
       entry.weight_unknown ? 1 : 0,
+      entry.macros_unknown ? 1 : 0,
       entry.nutrition.kcal,
       entry.nutrition.protein_g,
       entry.nutrition.fat_g,
@@ -272,9 +278,13 @@ export function insertFoodLog(db: Db, userId: number, entry: NewFoodLog): number
   return Number(info.lastInsertRowid);
 }
 
-interface FoodLogRow extends Omit<FoodLogEntry, 'processed_flags' | 'weight_unknown'> {
+interface FoodLogRow extends Omit<
+  FoodLogEntry,
+  'processed_flags' | 'weight_unknown' | 'macros_unknown'
+> {
   processed_flags: string;
   weight_unknown: number;
+  macros_unknown: number;
 }
 
 function toFoodLogEntry(row: FoodLogRow): FoodLogEntry {
@@ -282,6 +292,7 @@ function toFoodLogEntry(row: FoodLogRow): FoodLogEntry {
     ...row,
     processed_flags: parseFlags(row.processed_flags),
     weight_unknown: row.weight_unknown === 1,
+    macros_unknown: row.macros_unknown === 1,
   };
 }
 
@@ -289,7 +300,8 @@ export function listFoodLog(db: Db, userId: number, localDay: string): FoodLogEn
   const rows = db
     .prepare(
       `SELECT l.id, l.food_id, l.food_name, l.eaten_at, l.local_day, l.quantity, l.unit,
-              l.grams, l.weight_unknown, l.kcal, l.protein_g, l.fat_g, l.carb_g,
+              l.grams, l.weight_unknown, l.macros_unknown,
+              l.kcal, l.protein_g, l.fat_g, l.carb_g,
               COALESCE(f.processed_flags, '[]') AS processed_flags
        FROM food_log l
        LEFT JOIN foods f ON f.id = l.food_id
@@ -305,7 +317,8 @@ export function getFoodLogEntry(db: Db, userId: number, id: number): FoodLogEntr
   const row = db
     .prepare(
       `SELECT l.id, l.food_id, l.food_name, l.eaten_at, l.local_day, l.quantity, l.unit,
-              l.grams, l.weight_unknown, l.kcal, l.protein_g, l.fat_g, l.carb_g,
+              l.grams, l.weight_unknown, l.macros_unknown,
+              l.kcal, l.protein_g, l.fat_g, l.carb_g,
               COALESCE(f.processed_flags, '[]') AS processed_flags
        FROM food_log l
        LEFT JOIN foods f ON f.id = l.food_id

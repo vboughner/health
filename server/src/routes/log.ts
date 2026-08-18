@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppOptions } from '../app';
-import { toGrams, nutritionForGrams, type Unit } from '../domain/nutrition';
+import { toGrams, nutritionForGrams, quickNutrition, type Unit } from '../domain/nutrition';
 import { warningText } from '../domain/processed';
 import { localDay } from '../domain/day';
 import {
@@ -23,6 +23,14 @@ interface LogFoodBody {
   quantity: number;
   unit: Unit;
   /** Defaults to now. Present so a forgotten meal can be logged at its real time. */
+  eaten_at?: number;
+}
+
+interface QuickLogBody {
+  /** Whatever you call it. Never stored as a food, so it needs no more than this. */
+  name: string;
+  /** What the whole serving cost. There is no quantity to multiply it by. */
+  kcal: number;
   eaten_at?: number;
 }
 
@@ -92,6 +100,54 @@ export function registerLogRoutes(app: FastifyInstance, opts: AppOptions): void 
         // A nudge, not a block — the entry is already saved either way.
         warning: warningText(food.processed_flags) || null,
       });
+    },
+  );
+
+  /**
+   * A serving you already know: a name, its calories, and when you ate it.
+   *
+   * Deliberately not a branch of POST /log/food. That route resolves a food,
+   * converts to grams and scales per-100g figures; this one does none of it and
+   * saves no food, so the two share only the timestamp. Nothing here reaches the
+   * foods table, which is the point — this is not a food you will pick again.
+   */
+  app.post<{ Body: QuickLogBody }>(
+    '/log/quick',
+    { preHandler: app.requireUser },
+    async (request, reply) => {
+      const user = request.user!;
+      const body = request.body ?? ({} as QuickLogBody);
+      const name = typeof body.name === 'string' ? body.name.trim() : '';
+
+      if (!name) return reply.code(400).send({ error: 'Give it a name' });
+
+      let nutrition;
+      try {
+        nutrition = quickNutrition(body.kcal);
+      } catch (err) {
+        return reply
+          .code(400)
+          .send({ error: err instanceof Error ? err.message : 'Invalid calories' });
+      }
+
+      const eatenAt = typeof body.eaten_at === 'number' ? body.eaten_at : Date.now();
+
+      const id = insertFoodLog(opts.db, user.id, {
+        food_id: null,
+        food_name: name,
+        eaten_at: eatenAt,
+        local_day: localDay(eatenAt, user.timezone),
+        // One entry is one serving of one thing. The grams are not zero because it
+        // weighs nothing; there is no weight, which is what the flags say.
+        quantity: 1,
+        unit: 'serving',
+        grams: 0,
+        weight_unknown: true,
+        macros_unknown: true,
+        nutrition,
+      });
+
+      return reply.code(201).send({ entry: getFoodLogEntry(opts.db, user.id, id) });
     },
   );
 

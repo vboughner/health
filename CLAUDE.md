@@ -103,6 +103,18 @@ is what stops those bookkeeping grams being shown as if they were real: such a f
 displays no gram figure anywhere and `toGrams` refuses to log it by weight. The flag is
 snapshotted onto `food_log` for the same reason the calories are.
 
+**A quick entry has no macros, and that is not the same as having none.** "Log
+Calories Only" writes a `food_log` row with a name, a calorie figure and a time, and no
+`foods` row at all — the point is not to fill search and "Eaten often" with one bowl of
+soup you will never pick again. Its `food_id` is null, its `quantity`/`unit`/`grams` are a
+nominal `1`/`serving`/`0`, and `macros_unknown` (migration 008) is what stops the zeros in
+its macro columns reading as measurements, exactly as `weight_unknown` does for bookkeeping
+grams. `macroSplit` needs no special case — it divides macro-derived calories by each
+other, so an entry with none contributes nothing — but a split of part of a day presented
+as a split of all of it is the lie the flag exists to prevent: `unaccountedKcal` feeds
+`summary.food.macro_unknown_kcal` and Today prints "720 of 1391 cal have no macros on
+record" under the bar. The window and the budget do count these entries; a bite is a bite.
+
 **The eating window is derived, never asked.** First and last bite come from `food_log`
 timestamps. A checkbox is something you can lie to; a timestamp is not.
 
@@ -162,6 +174,9 @@ silently. On the Mac, `localhost:5174` counts as secure and can be used to test 
   and the 7pm cutoff is evaluated in local time.
 - `daily_entries.goals_reviewed` (migration 002) replaced `reviewed_morning` /
   `reviewed_night` when the check-in UI was removed and the Goals tab replaced it.
+- `food_log.food_id` is nullable and quick entries use it that way — a logged thing with
+  no food behind it. Anything reading the log must cope with a null food; `listFoodLog`
+  already LEFT JOINs for the processed flags.
 - `goal_periods` is the only store for the goal numbers. Migration 005 dropped the four
   columns that used to live on `users`; there is no live copy anywhere else to drift
   out of sync with it.
@@ -171,7 +186,7 @@ silently. On the Mac, `localhost:5174` counts as secure and can be used to test 
 - Prettier: 2-space, single quotes, semicolons, 100 columns. Run `npm run format`.
 - Tests required for bug fixes (a regression test that fails before, passes after) and
   for new domain functions. Route changes get an integration test via Fastify
-  `app.inject()` against an in-memory database. 353 server + 79 web tests.
+  `app.inject()` against an in-memory database. 373 server + 84 web tests.
 - **Both packages type-check their tests**, and each `npm test` runs `tsc` before
   vitest, so a test that does not compile fails the suite rather than passing quietly.
   The two do it differently because their build configs differ:

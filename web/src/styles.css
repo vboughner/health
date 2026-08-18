@@ -611,6 +611,12 @@ textarea:focus {
   margin-top: 11px;
 }
 
+/* What the split above is not speaking for. Not amber: amber is for warnings and
+   window violations, and this is a statement about coverage. */
+.macro-note {
+  margin-top: 9px;
+}
+
 .macro-legend-item {
   display: flex;
   align-items: center;

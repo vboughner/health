@@ -6,6 +6,7 @@ import { isSaved } from '../types';
 import { FoodRow } from '../components/FoodRow';
 import { LogSheet } from '../components/LogSheet';
 import { ManualFood } from '../components/ManualFood';
+import { QuickFood } from '../components/QuickFood';
 import { DayNav } from '../components/DayNav';
 
 const MIN_QUERY = 2;
@@ -29,6 +30,7 @@ export function AddFood({
   const [quickVersion, setQuickVersion] = useState(0);
   const [picked, setPicked] = useState<Pickable | null>(null);
   const [manual, setManual] = useState(false);
+  const [quick, setQuick] = useState(false);
   const [toast, setToast] = useState('');
 
   const trimmed = query.trim();
@@ -83,6 +85,7 @@ export function AddFood({
   function handleLogged(warning: string | null) {
     setPicked(null);
     setManual(false);
+    setQuick(false);
     setQuery('');
     setToast(warning ?? 'Logged');
     setTimeout(() => setToast(''), warning ? 6000 : 1800);
@@ -117,6 +120,13 @@ export function AddFood({
       {/* Above the lists rather than under them: it is the way out when the search
           and the usual foods have both failed you, and at the foot of a long list
           it was the one thing you had to scroll past everything to reach. */}
+      {/* First of the two, because it is the shorter road: nothing is saved and
+          nothing is asked for beyond a name and a number. Entering a food by hand
+          is for a food you will eat again. */}
+      <button className="btn btn-block" onClick={() => setQuick(true)}>
+        Log Calories Only
+      </button>
+
       <button className="btn btn-block" onClick={() => setManual(true)}>
         Enter A Food By Hand
       </button>
@@ -142,6 +152,15 @@ export function AddFood({
           date={date}
           today={today}
           onClose={() => setPicked(null)}
+          onLogged={handleLogged}
+        />
+      )}
+
+      {quick && (
+        <QuickFood
+          date={date}
+          today={today}
+          onClose={() => setQuick(false)}
           onLogged={handleLogged}
         />
       )}

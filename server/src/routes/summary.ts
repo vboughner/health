@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppOptions } from '../app';
 import { localDay, addDays, eatingWindow, sleepHours } from '../domain/day';
-import { sumNutrition, macroSplit } from '../domain/nutrition';
+import { sumNutrition, macroSplit, unaccountedKcal } from '../domain/nutrition';
 import { goalsForDay } from '../domain/goals';
 import { listFoodLog, listExercise, getDailyEntry, listGoalPeriods } from '../store';
 
@@ -49,6 +49,10 @@ export function registerSummaryRoutes(app: FastifyInstance, opts: AppOptions): v
           entries: foods,
           totals,
           macros: macroSplit(totals),
+          // How much of the day the split above is not speaking for. The split is
+          // computed from the macros themselves, so these calories are already out
+          // of it; this is what lets the screen say so rather than imply otherwise.
+          macro_unknown_kcal: unaccountedKcal(foods),
           budget: goals.kcal_budget,
           remaining: Math.round(goals.kcal_budget - totals.kcal),
         },

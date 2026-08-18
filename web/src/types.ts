@@ -77,6 +77,8 @@ export interface FoodLogEntry {
   grams: number;
   /** Snapshotted from the food, so a past entry keeps hiding its bookkeeping grams. */
   weight_unknown: boolean;
+  /** Calories were all that was recorded — the macro figures below are zeros, not facts. */
+  macros_unknown: boolean;
   kcal: number;
   protein_g: number;
   fat_g: number;
@@ -115,6 +117,8 @@ export interface DaySummary {
     entries: FoodLogEntry[];
     totals: { kcal: number; protein_g: number; fat_g: number; carb_g: number };
     macros: { protein: number; fat: number; carb: number };
+    /** How much of `totals.kcal` the split above is not speaking for. */
+    macro_unknown_kcal: number;
     budget: number;
     remaining: number;
   };

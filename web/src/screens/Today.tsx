@@ -287,6 +287,8 @@ export function Today({
               protein_g={food.totals.protein_g}
               fat_g={food.totals.fat_g}
               carb_g={food.totals.carb_g}
+              unknownKcal={food.macro_unknown_kcal}
+              totalKcal={food.totals.kcal}
             />
             <div className="card-split">
               <WindowBar window={win} />
@@ -354,12 +356,18 @@ function formatTime(epochMs: number, timezone: string): string {
   }).format(new Date(epochMs));
 }
 
-function formatAmount(e: {
+export function formatAmount(e: {
   quantity: number;
   unit: string;
   grams: number;
-  weight_unknown: boolean;
+  weight_unknown?: boolean;
+  macros_unknown?: boolean;
 }): string {
+  // A quick entry has no amount to state: its quantity and unit are the shape the
+  // table wants, not anything anyone chose. What it does have is a name and a
+  // number of calories, both already on the row.
+  if (e.macros_unknown) return 'calories only';
+
   const qty = Number.isInteger(e.quantity) ? e.quantity : e.quantity.toFixed(1);
   if (e.unit !== 'serving') return `${qty} ${e.unit}`;
   // A calorie-defined serving has grams only as bookkeeping — printing them would

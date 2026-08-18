@@ -89,6 +89,32 @@ export function sumNutrition(entries: Nutrition[]): Nutrition {
   };
 }
 
+/**
+ * A serving named and priced in calories and nothing else — "one bowl is 320 cal",
+ * typed straight into the day without a food behind it.
+ *
+ * The macros come back as zeros because the columns holding them cannot be null,
+ * not because the food had none. What records that is the `macros_unknown` flag on
+ * the log row; these zeros are meaningless without it.
+ */
+export function quickNutrition(kcal: number): Nutrition {
+  if (!Number.isFinite(kcal) || kcal <= 0) {
+    throw new Error(`Calories must be a positive number: ${kcal}`);
+  }
+  return { kcal: round1(kcal), protein_g: 0, fat_g: 0, carb_g: 0 };
+}
+
+/**
+ * How much of a day's intake has no macros on record.
+ *
+ * The macro split is computed from the macros themselves, so these calories are
+ * already absent from it. This is what lets the day say so out loud instead of
+ * quietly presenting a split of part of the day as a split of all of it.
+ */
+export function unaccountedKcal(entries: { kcal: number; macros_unknown: boolean }[]): number {
+  return round1(entries.reduce((sum, e) => (e.macros_unknown ? sum + e.kcal : sum), 0));
+}
+
 export interface MacroSplit {
   protein: number;
   fat: number;

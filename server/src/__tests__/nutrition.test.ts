@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { toGrams, nutritionForGrams, sumNutrition, macroSplit } from '../domain/nutrition';
+import {
+  toGrams,
+  nutritionForGrams,
+  sumNutrition,
+  macroSplit,
+  quickNutrition,
+  unaccountedKcal,
+} from '../domain/nutrition';
 
 // Real USDA per-100g figures, so the numbers below are checkable against reality.
 const BANANA = { kcal_per_100g: 89, protein_g: 1.09, fat_g: 0.33, carb_g: 22.8 };
@@ -149,5 +156,43 @@ describe('macroSplit', () => {
     const split = macroSplit({ kcal: 9999, protein_g: 10, fat_g: 0, carb_g: 10 });
     expect(split.protein).toBeCloseTo(50, 1);
     expect(split.carb).toBeCloseTo(50, 1);
+  });
+});
+
+describe('quickNutrition', () => {
+  it('records the calories and leaves the macros at zero', () => {
+    expect(quickNutrition(720)).toEqual({ kcal: 720, protein_g: 0, fat_g: 0, carb_g: 0 });
+  });
+
+  it('rounds to a tenth like every other figure', () => {
+    expect(quickNutrition(190.44).kcal).toBe(190.4);
+  });
+
+  it('rejects a figure that is not a positive number', () => {
+    expect(() => quickNutrition(0)).toThrow(/positive/i);
+    expect(() => quickNutrition(-5)).toThrow(/positive/i);
+    expect(() => quickNutrition(Number.NaN)).toThrow(/positive/i);
+    expect(() => quickNutrition(Number.POSITIVE_INFINITY)).toThrow(/positive/i);
+  });
+});
+
+describe('unaccountedKcal', () => {
+  const known = { kcal: 310, macros_unknown: false };
+  const quick = { kcal: 720, macros_unknown: true };
+
+  it('sums only the entries whose macros were never recorded', () => {
+    expect(unaccountedKcal([known, quick, { kcal: 190, macros_unknown: true }])).toBe(910);
+  });
+
+  it('is zero for a day of ordinary foods', () => {
+    expect(unaccountedKcal([known, { kcal: 400, macros_unknown: false }])).toBe(0);
+  });
+
+  it('is zero for an empty day', () => {
+    expect(unaccountedKcal([])).toBe(0);
+  });
+
+  it('rounds the sum to a tenth', () => {
+    expect(unaccountedKcal([{ kcal: 0.15, macros_unknown: true }])).toBe(0.2);
   });
 });
