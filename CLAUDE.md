@@ -63,6 +63,14 @@ Two packages, mirroring the `server/` + `client/` split in the griljor repo.
   dev and prod.
   - Five tabs: `Today` (the day), `Goals`, `AddFood`, `Trends`, `Settings`. Plus
     `Login`.
+  - Every card on `Today` folds. `CollapsibleCard` keeps the choice per card in
+    `localStorage` — the screen unmounts on every tab switch, so component state alone
+    springs each one back open on the way back from Add food. A collapsed card still
+    answers its own question through `summary`, so folding one costs a detail rather
+    than the whole picture: calories keep what is left of the budget (red when over),
+    Morning the weight and wake time, Bedtime the bedtime and whether the plan was
+    read. Those lines drop whatever the account does not track or has not recorded,
+    and vanish entirely rather than show a lonely separator.
   - `src/dates.ts` — client-side day arithmetic. Mirrors parts of the server's
     `domain/day.ts` on purpose: the two packages must not import each other.
   - `src/settings.ts` — which features this account tracks (diet, exercise, sleep,
@@ -186,7 +194,7 @@ silently. On the Mac, `localhost:5174` counts as secure and can be used to test 
 - Prettier: 2-space, single quotes, semicolons, 100 columns. Run `npm run format`.
 - Tests required for bug fixes (a regression test that fails before, passes after) and
   for new domain functions. Route changes get an integration test via Fastify
-  `app.inject()` against an in-memory database. 373 server + 84 web tests.
+  `app.inject()` against an in-memory database. 373 server + 96 web tests.
 - **Both packages type-check their tests**, and each `npm test` runs `tsc` before
   vitest, so a test that does not compile fails the suite rather than passing quietly.
   The two do it differently because their build configs differ:

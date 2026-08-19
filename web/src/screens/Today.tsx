@@ -128,6 +128,7 @@ export function Today({
   const showingToday = shown === today;
 
   const { food, exercise, window: win, day } = summary;
+  const kcalLine = calorieSummary(food.totals.kcal, food.budget, showingToday);
   const patchDay = (patch: Partial<DayEntry>) => act(() => api.put(`/day/${shown}`, patch));
 
   /**
@@ -170,9 +171,15 @@ export function Today({
             switched off they would sit at zero rather than say anything — the
             section that is gone is the one that fed them. */}
         {settings.food && (
-          <div className="card">
+          <CollapsibleCard
+            id="calories"
+            title="Calories"
+            summary={
+              <span className={kcalLine.over ? 'kcal-over' : undefined}>{kcalLine.text}</span>
+            }
+          >
             <CalorieHeader eaten={food.totals.kcal} budget={food.budget} isToday={showingToday} />
-          </div>
+          </CollapsibleCard>
         )}
 
         {/* Morning holds two independent things, so it survives on either one alone —
@@ -180,8 +187,11 @@ export function Today({
             and vice versa. Only with both off does the heading go too, rather than
             standing over nothing. */}
         {(settings.weight || settings.sleep) && (
-          <div className="card">
-            <div className="card-title">Morning</div>
+          <CollapsibleCard
+            id="morning"
+            title="Morning"
+            summary={morningSummary(day, settings, user.timezone)}
+          >
             <div className="stack">
               {settings.weight && (
                 <WeightInput
@@ -203,7 +213,7 @@ export function Today({
                 />
               )}
             </div>
-          </div>
+          </CollapsibleCard>
         )}
 
         {/* The two long, scrolling sections fold away. Each keeps its headline
@@ -299,8 +309,11 @@ export function Today({
         {/* Like Morning, Bedtime holds two unrelated things and survives on either
             one. With both off there is no evening left to show. */}
         {(settings.sleep || settings.goals) && (
-          <div className="card">
-            <div className="card-title">Bedtime</div>
+          <CollapsibleCard
+            id="bedtime"
+            title="Bedtime"
+            summary={bedtimeSummary(day, settings, user.timezone)}
+          >
             <div className="stack">
               {settings.sleep && (
                 <BedInput
@@ -332,7 +345,7 @@ export function Today({
               )}
               {notice && <div className="toast tiny">{notice}</div>}
             </div>
-          </div>
+          </CollapsibleCard>
         )}
       </div>
     </div>
@@ -346,6 +359,50 @@ function Stat({ value, label, dim = false }: { value: number; label: string; dim
       <div className="stat-label">{label}</div>
     </div>
   );
+}
+
+/**
+ * What a folded card still says. Each is the one line worth having without opening
+ * the section, and each leaves out anything this account does not track or has not
+ * recorded yet — a card that reads "· ·" around missing halves is worse than one
+ * that says nothing.
+ */
+export function calorieSummary(
+  eaten: number,
+  budget: number,
+  isToday: boolean,
+): { text: string; over: boolean } {
+  const remaining = Math.round(budget - eaten);
+  if (remaining < 0) return { text: `+${Math.abs(remaining)} over`, over: true };
+  // "left" is wrong when you are looking back at a finished day, the same
+  // distinction the open card draws.
+  return { text: `${remaining} ${isToday ? 'left' : 'under'}`, over: false };
+}
+
+export function morningSummary(
+  day: { weight_lb: number | null; sleep_end: number | null },
+  settings: SettingsValue,
+  timezone: string,
+): string | undefined {
+  const parts: string[] = [];
+  if (settings.weight && day.weight_lb !== null) parts.push(`${day.weight_lb} lb`);
+  if (settings.sleep && day.sleep_end !== null) {
+    parts.push(`up ${formatTime(day.sleep_end, timezone)}`);
+  }
+  return parts.length ? parts.join(' · ') : undefined;
+}
+
+export function bedtimeSummary(
+  day: { sleep_start: number | null; goals_reviewed: boolean },
+  settings: SettingsValue,
+  timezone: string,
+): string | undefined {
+  const parts: string[] = [];
+  if (settings.sleep && day.sleep_start !== null) {
+    parts.push(`down ${formatTime(day.sleep_start, timezone)}`);
+  }
+  if (settings.goals && day.goals_reviewed) parts.push('✓ reviewed');
+  return parts.length ? parts.join(' · ') : undefined;
 }
 
 function formatTime(epochMs: number, timezone: string): string {
