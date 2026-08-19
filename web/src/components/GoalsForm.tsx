@@ -90,10 +90,17 @@ export function GoalsForm({
       <div className="field-rows">
         <div className={`${row(tracked.food)} field-row-stack`}>
           <span className="field-label">Eating window</span>
+          {/* "to" is grouped with the end time rather than left loose between the two,
+              so that when the line is too narrow for both they wrap as a pair and the
+              second line still says what it is. */}
           <span className="field-input">
-            <input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
-            <span className="field-unit">to</span>
-            <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
+            <span className="field-time">
+              <input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
+            </span>
+            <span className="field-time">
+              <span className="field-unit">to</span>
+              <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
+            </span>
           </span>
         </div>
 

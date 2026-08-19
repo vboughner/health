@@ -1012,8 +1012,26 @@ textarea:focus {
   flex: none;
 }
 
+/* On a narrower phone even that line is not enough: en-US wants ~325px for two times
+   and a joining word, which is more than a 360px screen leaves inside the card, and the
+   end time used to hang off the edge and scroll the page sideways. Wrapping is the only
+   way out, because an <input type="time"> cannot be narrowed past the time it renders —
+   Chrome clips the meridiem rather than shrinking it, and "07:00" read as morning is the
+   one thing this field must never do. So the times wrap onto a line each, "to" travelling
+   with the end time. Content-driven rather than a viewport breakpoint: a 24-hour locale
+   needs less and keeps both on one line at a width where en-US cannot. */
 .field-row-stack .field-input {
   width: 100%;
+  flex-wrap: wrap;
+}
+
+/* One time and, on the second, the word introducing it. Grows to share the line, and
+   keeps its base size at its content so the pair wraps rather than shrinks. */
+.field-time {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
 }
 
 /* Share the freed line evenly rather than sitting at a fixed width, so a 24-hour
