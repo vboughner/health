@@ -105,7 +105,8 @@ holds:
 The amount and calorie boxes are linked live through the existing client mirror in
 `web/src/nutrition.ts` — the preview never decides what is stored, the server
 recomputes on save, and the comment already at the top of that file continues to
-be true.
+be true. Save sends whichever of the two the sheet was last editing, never both,
+so the figure that is authoritative on the server is the one that was typed.
 
 Saving and deleting both go through Today's existing `act()`, so the calorie
 header, the eating window and the macro split refresh together with the list.
