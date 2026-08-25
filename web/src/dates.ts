@@ -73,6 +73,15 @@ export function nowTime(now = new Date()): string {
 }
 
 /**
+ * An existing timestamp as HH:MM — the inverse of `atTimeOn`, for prefilling a
+ * time input with a time already saved. Browser timezone, as `atTimeOn` is, so
+ * editing a time and saving it back is a round trip that changes nothing.
+ */
+export function timeOf(epochMs: number): string {
+  return nowTime(new Date(epochMs));
+}
+
+/**
  * Before this hour, lying down counts as the small hours of a night already in
  * progress rather than the start of the next one.
  */

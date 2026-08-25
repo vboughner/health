@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api';
 import { bedtimeBelongsTo, shortDayLabel } from '../dates';
-import type { User, DaySummary, DayEntry, Activity } from '../types';
+import type { User, DaySummary, DayEntry, Activity, FoodLogEntry } from '../types';
 import { nothingTracked, type Settings as SettingsValue } from '../settings';
 import { CalorieHeader } from '../components/CalorieHeader';
 import { MacroBar } from '../components/MacroBar';
@@ -9,6 +9,7 @@ import { WindowBar } from '../components/WindowBar';
 import { DayNav } from '../components/DayNav';
 import { CollapsibleCard } from '../components/CollapsibleCard';
 import { NothingTracked } from '../components/NothingTracked';
+import { EditEntry } from '../components/EditEntry';
 import { WarningChip } from '../components/FoodRow';
 import {
   WeightInput,
@@ -44,6 +45,9 @@ export function Today({
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [version, setVersion] = useState(0);
+  // The entry whose edit sheet is open. Held here rather than in the card so it
+  // survives the card's own re-render, and so saving can bump `version` directly.
+  const [editing, setEditing] = useState<FoodLogEntry | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -256,7 +260,12 @@ export function Today({
             ) : (
               <div className="list">
                 {food.entries.map((e) => (
-                  <div key={e.id} className="entry">
+                  <button
+                    key={e.id}
+                    className="entry"
+                    onClick={() => setEditing(e)}
+                    aria-label={`Edit ${e.food_name}`}
+                  >
                     <div className="entry-main">
                       <div className="entry-name">
                         {e.food_name}
@@ -267,14 +276,7 @@ export function Today({
                       </div>
                     </div>
                     <div className="entry-kcal">{Math.round(e.kcal)}</div>
-                    <button
-                      className="entry-del"
-                      onClick={() => act(() => api.del(`/log/food/${e.id}`))}
-                      aria-label={`Delete ${e.food_name}`}
-                    >
-                      ×
-                    </button>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
@@ -348,6 +350,23 @@ export function Today({
           </CollapsibleCard>
         )}
       </div>
+
+      {/* Rendered outside the dimmed body so an open sheet is never greyed out by
+          a day change happening behind it. Keyed on the entry so stepping from one
+          to another refills the boxes rather than keeping the first one's edits. */}
+      {editing && (
+        <EditEntry
+          key={editing.id}
+          entry={editing}
+          date={shown}
+          today={today}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            setVersion((v) => v + 1);
+          }}
+        />
+      )}
     </div>
   );
 }

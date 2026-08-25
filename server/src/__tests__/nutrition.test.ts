@@ -6,6 +6,8 @@ import {
   macroSplit,
   quickNutrition,
   unaccountedKcal,
+  scaleNutrition,
+  factorForKcal,
 } from '../domain/nutrition';
 
 // Real USDA per-100g figures, so the numbers below are checkable against reality.
@@ -194,5 +196,60 @@ describe('unaccountedKcal', () => {
 
   it('rounds the sum to a tenth', () => {
     expect(unaccountedKcal([{ kcal: 0.15, macros_unknown: true }])).toBe(0.2);
+  });
+});
+
+describe('scaleNutrition', () => {
+  // 150 g of chicken breast, as an entry would have snapshotted it.
+  const logged = { kcal: 247.5, protein_g: 46.5, fat_g: 5.4, carb_g: 0 };
+
+  it('scales every figure by the same factor', () => {
+    expect(scaleNutrition(logged, 2)).toEqual({
+      kcal: 495,
+      protein_g: 93,
+      fat_g: 10.8,
+      carb_g: 0,
+    });
+  });
+
+  it('rounds each figure to a tenth', () => {
+    expect(scaleNutrition(logged, 1 / 3)).toEqual({
+      kcal: 82.5,
+      protein_g: 15.5,
+      fat_g: 1.8,
+      carb_g: 0,
+    });
+  });
+
+  it('leaves the entry alone at a factor of one', () => {
+    expect(scaleNutrition(logged, 1)).toEqual(logged);
+  });
+
+  it('refuses a factor that is not a positive number', () => {
+    expect(() => scaleNutrition(logged, 0)).toThrow(/positive/i);
+    expect(() => scaleNutrition(logged, -1)).toThrow(/positive/i);
+    expect(() => scaleNutrition(logged, Number.NaN)).toThrow(/positive/i);
+  });
+});
+
+describe('factorForKcal', () => {
+  it('is the multiple of what was logged that the new figure represents', () => {
+    expect(factorForKcal(247.5, 495)).toBe(2);
+    expect(factorForKcal(320, 400)).toBe(1.25);
+  });
+
+  it('is one when the figure has not changed', () => {
+    expect(factorForKcal(247.5, 247.5)).toBe(1);
+  });
+
+  it('refuses to back-solve an entry that cost no calories', () => {
+    // There is no amount of a zero-calorie food that comes to 400 cal.
+    expect(() => factorForKcal(0, 400)).toThrow(/no calories/i);
+  });
+
+  it('refuses a target that is not a positive number', () => {
+    expect(() => factorForKcal(247.5, 0)).toThrow(/positive/i);
+    expect(() => factorForKcal(247.5, -10)).toThrow(/positive/i);
+    expect(() => factorForKcal(247.5, Number.NaN)).toThrow(/positive/i);
   });
 });

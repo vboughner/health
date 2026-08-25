@@ -340,6 +340,21 @@ textarea:focus {
   font-weight: 700;
 }
 
+/* Quieter than the primary action beside it. Delete is the one thing on the edit
+   sheet that cannot be undone, which argues for it being easy to find and hard to
+   hit by accident — not for it being the loudest thing on the screen. */
+.btn-danger {
+  color: var(--over);
+  background: none;
+  border: none;
+  font-weight: 500;
+  padding: 8px 10px;
+}
+
+.btn-danger:active {
+  background: var(--over-dim);
+}
+
 .btn-ghost {
   background: none;
   border: none;
@@ -755,20 +770,15 @@ textarea:focus {
   font-size: 15px;
 }
 
-.entry-del {
-  flex-shrink: 0;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  font-size: 20px;
-  line-height: 1;
-  color: var(--text-faint);
-  background: var(--surface-2);
+/* The whole row opens the edit sheet, so it is a button rather than a div with a
+   delete target beside it — one hit area per row instead of two under a thumb. */
+.entry {
+  width: 100%;
+  text-align: left;
 }
 
-.entry-del:active {
-  background: var(--over-dim);
-  color: var(--over);
+.entry:active {
+  opacity: 0.6;
 }
 
 /* ---------- bottom sheet ---------- */

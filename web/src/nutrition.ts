@@ -42,6 +42,51 @@ export function preview(food: Pickable, quantity: number, unit: Unit): Preview |
   };
 }
 
+/** The figures a logged entry snapshotted, which an edit scales. */
+export interface Scalable {
+  quantity: number;
+  grams: number;
+  kcal: number;
+  protein_g: number;
+  fat_g: number;
+  carb_g: number;
+}
+
+/**
+ * What an entry becomes when you type into one of the two boxes that describe it.
+ *
+ * The amount and the calories are two spellings of one number: each sets the
+ * other, so the sheet shows both and the server is told whichever was typed. Like
+ * `preview` above, this decides nothing — it scales what the entry recorded so the
+ * correction is an informed one, and the server does the same arithmetic on save.
+ *
+ * Null means there is nothing to show: a figure that is not a positive number, an
+ * entry with no amount to scale, or calories typed onto something that cost none.
+ */
+export function editPreview(
+  entry: Scalable,
+  field: 'quantity' | 'kcal',
+  value: number,
+): Scalable | null {
+  if (!Number.isFinite(value) || value <= 0) return null;
+
+  const from = entry[field];
+  if (!Number.isFinite(from) || from <= 0) return null;
+
+  const factor = value / from;
+
+  return {
+    // The box being typed in keeps exactly what was typed; only the other moves.
+    // Amounts are kept finer than a tenth because a quarter of a serving is real.
+    quantity: field === 'quantity' ? value : round3(entry.quantity * factor),
+    grams: round1(entry.grams * factor),
+    kcal: field === 'kcal' ? value : round1(entry.kcal * factor),
+    protein_g: round1(entry.protein_g * factor),
+    fat_g: round1(entry.fat_g * factor),
+    carb_g: round1(entry.carb_g * factor),
+  };
+}
+
 /** Macro split by calories, matching the server. Zeros when there is nothing to split. */
 export function macroSplit(m: { protein_g: number; fat_g: number; carb_g: number }) {
   const protein = m.protein_g * 4;
@@ -60,4 +105,8 @@ export function macroSplit(m: { protein_g: number; fat_g: number; carb_g: number
 
 function round1(n: number): number {
   return Math.round(n * 10) / 10;
+}
+
+function round3(n: number): number {
+  return Math.round(n * 1000) / 1000;
 }

@@ -105,6 +105,44 @@ export function quickNutrition(kcal: number): Nutrition {
 }
 
 /**
+ * Rescale figures a log entry already snapshotted.
+ *
+ * Editing an entry scales what it recorded rather than re-reading the food behind
+ * it. The snapshot exists so that re-caching a food cannot rewrite a past day, and
+ * pricing an edit at today's figures would reopen that hole from the other side —
+ * changing only the time on an old entry would quietly change what it cost.
+ */
+export function scaleNutrition(n: Nutrition, factor: number): Nutrition {
+  if (!Number.isFinite(factor) || factor <= 0) {
+    throw new Error(`Factor must be a positive number: ${factor}`);
+  }
+  return {
+    kcal: round1(n.kcal * factor),
+    protein_g: round1(n.protein_g * factor),
+    fat_g: round1(n.fat_g * factor),
+    carb_g: round1(n.carb_g * factor),
+  };
+}
+
+/**
+ * What multiple of what was logged a calorie figure represents.
+ *
+ * Typing a calorie figure onto an entry is another way of saying how much of it
+ * you ate, so it back-solves the amount. A zero-calorie entry has no such amount:
+ * no quantity of it comes to 400 cal, which is a refusal rather than a division
+ * by zero.
+ */
+export function factorForKcal(loggedKcal: number, kcal: number): number {
+  if (!Number.isFinite(kcal) || kcal <= 0) {
+    throw new Error(`Calories must be a positive number: ${kcal}`);
+  }
+  if (!Number.isFinite(loggedKcal) || loggedKcal <= 0) {
+    throw new Error('This entry has no calories to scale — change the amount instead');
+  }
+  return kcal / loggedKcal;
+}
+
+/**
  * How much of a day's intake has no macros on record.
  *
  * The macro split is computed from the macros themselves, so these calories are

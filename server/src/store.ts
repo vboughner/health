@@ -330,6 +330,49 @@ export function getFoodLogEntry(db: Db, userId: number, id: number): FoodLogEntr
   return toFoodLogEntry(row);
 }
 
+/**
+ * Everything an edit can move on a logged entry.
+ *
+ * All of it at once rather than a patch of whatever changed: the fields are
+ * derived from each other — an amount sets the grams and the nutrition, a time
+ * sets the day — so the caller has worked out every one of them by the time it
+ * gets here, and a dynamic SET clause would only hide that.
+ */
+export interface EditedFoodLog {
+  food_name: string;
+  eaten_at: number;
+  local_day: string;
+  quantity: number;
+  grams: number;
+  nutrition: Nutrition;
+}
+
+/** Returns false when the entry doesn't exist or belongs to someone else. */
+export function updateFoodLog(db: Db, userId: number, id: number, edit: EditedFoodLog): boolean {
+  return (
+    db
+      .prepare(
+        `UPDATE food_log
+            SET food_name = ?, eaten_at = ?, local_day = ?, quantity = ?, grams = ?,
+                kcal = ?, protein_g = ?, fat_g = ?, carb_g = ?
+          WHERE user_id = ? AND id = ?`,
+      )
+      .run(
+        edit.food_name,
+        edit.eaten_at,
+        edit.local_day,
+        edit.quantity,
+        edit.grams,
+        edit.nutrition.kcal,
+        edit.nutrition.protein_g,
+        edit.nutrition.fat_g,
+        edit.nutrition.carb_g,
+        userId,
+        id,
+      ).changes > 0
+  );
+}
+
 /** Returns false when the entry doesn't exist or belongs to someone else. */
 export function deleteFoodLog(db: Db, userId: number, id: number): boolean {
   return (

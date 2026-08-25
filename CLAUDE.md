@@ -144,6 +144,19 @@ is not is worse than one that says it could not be.
 **`food_log` snapshots its calories and macros at log time.** Re-caching a food from
 USDA later must never rewrite what a past day says you ate. There is a test for this.
 
+**Editing an entry scales that snapshot, never the food behind it.** `PATCH
+/log/food/:id` reads the row's own figures and multiplies them by one factor; it
+does not look the food up. Pricing an edit at the food's current per-100g numbers
+would reopen the hole above from the other side, so that nudging a time on a
+March entry quietly re-priced it. Two things follow. The **unit is not editable** —
+the serving size lives on the food and the entry knows only the grams it worked
+out to. And the **amount and the calories are two spellings of one number**: typing
+400 onto a 320-cal entry is another way of saying you ate a quarter more of it, so
+it back-solves the amount and carries the macros with it. `factorForKcal` refuses a
+zero-calorie entry rather than dividing by zero — no amount of black coffee comes
+to 400 cal. A quick entry has no amount to scale, so its edit is its name, its
+calories and its time, and both its flags survive untouched.
+
 **`Today.tsx` renders from `shown` (= `summary.date`), never from `date`.** Stepping
 between days keeps the previous day on screen, dimmed, until the new one arrives —
 swapping in a spinner collapsed the page and read as a flicker. During that gap `date`
@@ -194,7 +207,7 @@ silently. On the Mac, `localhost:5174` counts as secure and can be used to test 
 - Prettier: 2-space, single quotes, semicolons, 100 columns. Run `npm run format`.
 - Tests required for bug fixes (a regression test that fails before, passes after) and
   for new domain functions. Route changes get an integration test via Fastify
-  `app.inject()` against an in-memory database. 373 server + 96 web tests.
+  `app.inject()` against an in-memory database. 401 server + 105 web tests.
 - **Both packages type-check their tests**, and each `npm test` runs `tsc` before
   vitest, so a test that does not compile fails the suite rather than passing quietly.
   The two do it differently because their build configs differ:

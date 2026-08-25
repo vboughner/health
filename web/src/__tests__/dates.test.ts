@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  timeOf,
   todayIn,
   addDays,
   daysBetween,
@@ -164,5 +165,16 @@ describe('bedtimeBelongsTo', () => {
 
     expect(bedtimeBelongsTo('America/Los_Angeles', instant)).toBe('2026-08-10');
     expect(bedtimeBelongsTo('UTC', instant)).toBe('2026-08-11');
+  });
+});
+
+describe('timeOf', () => {
+  it('gives an existing timestamp back as HH:MM, ready for a time input', () => {
+    expect(timeOf(new Date(2026, 7, 25, 9, 5).getTime())).toBe('09:05');
+    expect(timeOf(new Date(2026, 7, 25, 20, 30).getTime())).toBe('20:30');
+  });
+
+  it('is the inverse of atTimeOn, so an edit prefills with what was saved', () => {
+    expect(timeOf(atTimeOn('2026-08-25', '13:47'))).toBe('13:47');
   });
 });
