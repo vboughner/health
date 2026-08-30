@@ -157,6 +157,34 @@ zero-calorie entry rather than dividing by zero — no amount of black coffee co
 to 400 cal. A quick entry has no amount to scale, so its edit is its name, its
 calories and its time, and both its flags survive untouched.
 
+**The day on screen turns over at 4am, and "today" is two different things.**
+`todayIn` is the literal calendar day: it is what `today` is, and what `DayNav` and
+`dayLabel` compare against. `appDay` is the day the screen should be *sitting* on,
+which before 4am is still the previous one. Between midnight and 4am the two
+disagree on purpose — you see the evening you are still in, honestly labelled
+"Yesterday", with the forward arrow and the Today button both there. `DAY_ROLLOVER_HOUR`
+is deliberately not `NIGHT_SPLIT_HOUR`: noon answers which evening a bedtime belongs
+to, and as a rollover would leave the screen a day behind until lunchtime.
+
+`useCurrentDay` in `App.tsx` is what makes any of it happen. `today` was already
+derived on render, with a comment claiming that kept it fresh past midnight — it did
+not, because nothing re-renders overnight. There is no polling loop that would have
+caught it either: the hook re-renders on `visibilitychange`, on `focus`, and on a
+60-second tick, and moves its state only when one of the two days actually changed.
+A phone sleeps its timers, so the interval alone would not fire on the way back from
+an overnight suspend; picking the phone up is what `visibilitychange` is for.
+
+Only a screen that was *following* the current day moves with it. `followRollover`
+leaves a day you stepped back to on purpose exactly where you put it. Both it and
+`appDay` are pure and tested; the hook is thin enough not to be.
+
+The day boundary stops at the client. `local_day` on the server is still the true
+calendar day, so food logged between midnight and 4am is filed under the new date
+while the screen is on the old one — and, because that day counts as a backfill, its
+time prefills 12:00 rather than the real hour. Well outside a 9am–7pm window, and the
+"Yesterday" heading is the honest signal. Moving the boundary into `local_day` would
+fix it and re-judge every past day's eating window; that was considered and rejected.
+
 **`Today.tsx` renders from `shown` (= `summary.date`), never from `date`.** Stepping
 between days keeps the previous day on screen, dimmed, until the new one arrives —
 swapping in a spinner collapsed the page and read as a flicker. During that gap `date`
@@ -207,7 +235,7 @@ silently. On the Mac, `localhost:5174` counts as secure and can be used to test 
 - Prettier: 2-space, single quotes, semicolons, 100 columns. Run `npm run format`.
 - Tests required for bug fixes (a regression test that fails before, passes after) and
   for new domain functions. Route changes get an integration test via Fastify
-  `app.inject()` against an in-memory database. 401 server + 105 web tests.
+  `app.inject()` against an in-memory database. 401 server + 114 web tests.
 - **Both packages type-check their tests**, and each `npm test` runs `tsc` before
   vitest, so a test that does not compile fails the suite rather than passing quietly.
   The two do it differently because their build configs differ:

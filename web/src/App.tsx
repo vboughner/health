@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { api, ApiError } from './api';
-import { todayIn } from './dates';
+import { todayIn, appDay, followRollover } from './dates';
 import { clearLegacySettings, type Settings as SettingsValue } from './settings';
 import type { Goals, User } from './types';
 import { Login } from './screens/Login';
@@ -33,6 +33,32 @@ export function App() {
   const [date, setDate] = useState<string | null>(null);
   const [goals, setGoals] = useState<Goals | null>(null);
   const [settingsError, setSettingsError] = useState('');
+
+  // Both days, kept current across a night with the app left open. `today` is the
+  // calendar day and labels everything; `currentDay` is the day the screen should
+  // be sitting on, which between midnight and 4am is still yesterday.
+  const clock = useCurrentDay(user?.timezone ?? null);
+  const currentDay = clock?.appDay ?? null;
+
+  /**
+   * Carry the shown day forward when the day turns underneath us.
+   *
+   * The ref holds the app-day as of the last turn, which is what decides whether the
+   * screen was following the current day or parked on one you chose — `followRollover`
+   * moves the first and leaves the second alone. On the first run there is no previous
+   * day to compare against and the day was only just seeded, so it records and stops.
+   */
+  const lastAppDay = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (currentDay === null) return;
+
+    const previous = lastAppDay.current;
+    lastAppDay.current = currentDay;
+    if (previous === null || previous === currentDay) return;
+
+    setDate((shown) => (shown === null ? shown : followRollover(shown, previous, currentDay)));
+  }, [currentDay]);
 
   /**
    * Optimistic: the toggle moves at once and the request follows, because a switch
@@ -82,7 +108,7 @@ export function App() {
       .then(({ user, goals }) => {
         setUser(user);
         setGoals(goals);
-        setDate(todayIn(user.timezone));
+        setDate(appDay(user.timezone));
       })
       .catch((err) => {
         // 401 just means "not logged in yet" — anything else is worth seeing.
@@ -122,7 +148,7 @@ export function App() {
   function handleLoggedIn(next: User, nextGoals: Goals) {
     setUser(next);
     setGoals(nextGoals);
-    setDate(todayIn(next.timezone));
+    setDate(appDay(next.timezone));
     // Logging out never unmounts App, so the tab from the last session is still
     // sitting there. A new sign-in starts where the app starts.
     changeTab('today');
@@ -138,9 +164,11 @@ export function App() {
 
   if (!user || !date || !goals) return <Login onLoggedIn={handleLoggedIn} />;
 
-  // Recomputed on render rather than stored, so leaving the app open past
-  // midnight doesn't leave "Today" pointing at yesterday.
-  const today = todayIn(user.timezone);
+  // Derived on render, so it is never stale relative to the clock that drives it —
+  // and `useCurrentDay` is what guarantees a render actually happens when the day
+  // turns. Deriving alone was not enough: nothing re-rendered overnight, so "Today"
+  // sat over yesterday's entries until something was tapped.
+  const today = clock?.today ?? todayIn(user.timezone);
 
   return (
     <div className="app">
@@ -207,4 +235,63 @@ export function App() {
       </nav>
     </div>
   );
+}
+
+interface CurrentDay {
+  /** The literal calendar day. What every label and DayNav compare against. */
+  today: string;
+  /** The day the screen should be on. Trails `today` between midnight and 4am. */
+  appDay: string;
+}
+
+/**
+ * The current day, kept current.
+ *
+ * Both values are derived from a timestamp in state rather than stored, so they are
+ * always consistent with each other and a render can never show a half-updated pair.
+ * The state exists only to force the render: it moves when — and only when — one of
+ * the two days has actually changed, which is twice a day rather than once a minute.
+ *
+ * A phone sleeps its timers, so the interval alone would not fire on the way back
+ * from an overnight suspend; `visibilitychange` covers picking the phone up and
+ * `focus` covers a desktop tab. Between them the day is right within a minute of
+ * turning, and immediately on being looked at.
+ */
+function useCurrentDay(timezone: string | null): CurrentDay | null {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!timezone) return;
+
+    const sync = () => {
+      const at = Date.now();
+      // Computed outside the updater: React may run an updater more than once, and
+      // one that reads the clock itself would not be pure.
+      setNow((prev) => (dayKey(timezone, prev) === dayKey(timezone, at) ? prev : at));
+    };
+
+    sync();
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') sync();
+    };
+
+    const timer = window.setInterval(sync, 60_000);
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', sync);
+
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', sync);
+    };
+  }, [timezone]);
+
+  if (!timezone) return null;
+  return { today: todayIn(timezone, now), appDay: appDay(timezone, new Date(now)) };
+}
+
+/** The pair of days at an instant, as one string, for asking whether they moved. */
+function dayKey(timezone: string, at: number): string {
+  return `${todayIn(timezone, at)}|${appDay(timezone, new Date(at))}`;
 }

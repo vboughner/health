@@ -9,6 +9,8 @@ import {
   atTimeOn,
   nowTime,
   bedtimeBelongsTo,
+  appDay,
+  followRollover,
 } from '../dates';
 
 const LA = 'America/Los_Angeles';
@@ -176,5 +178,55 @@ describe('timeOf', () => {
 
   it('is the inverse of atTimeOn, so an edit prefills with what was saved', () => {
     expect(timeOf(atTimeOn('2026-08-25', '13:47'))).toBe('13:47');
+  });
+});
+
+describe('appDay', () => {
+  const LOCAL = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  it('is the calendar day once the day has properly begun', () => {
+    expect(appDay(LOCAL, new Date(2026, 7, 31, 7, 0))).toBe('2026-08-31');
+    expect(appDay(LOCAL, new Date(2026, 7, 31, 23, 30))).toBe('2026-08-31');
+  });
+
+  it('keeps the small hours on the evening that is still going', () => {
+    expect(appDay(LOCAL, new Date(2026, 7, 31, 0, 0))).toBe('2026-08-30');
+    expect(appDay(LOCAL, new Date(2026, 7, 31, 2, 15))).toBe('2026-08-30');
+  });
+
+  it('turns over at 4am', () => {
+    expect(appDay(LOCAL, new Date(2026, 7, 31, 3, 59))).toBe('2026-08-30');
+    expect(appDay(LOCAL, new Date(2026, 7, 31, 4, 0))).toBe('2026-08-31');
+  });
+
+  it('rolls back over a month boundary', () => {
+    expect(appDay(LOCAL, new Date(2026, 8, 1, 1, 0))).toBe('2026-08-31');
+  });
+
+  it('rolls back over a year boundary', () => {
+    expect(appDay(LOCAL, new Date(2027, 0, 1, 3, 0))).toBe('2026-12-31');
+  });
+
+  it("reads the hour in the account's timezone, not the browser's", () => {
+    // 1am in Los Angeles is 8am UTC — before the turn on one clock, after it on
+    // the other.
+    const instant = new Date('2026-08-31T01:00:00-07:00');
+
+    expect(appDay(LA, instant)).toBe('2026-08-30');
+    expect(appDay('UTC', instant)).toBe('2026-08-31');
+  });
+});
+
+describe('followRollover', () => {
+  it('carries the shown day forward when it was the current one', () => {
+    expect(followRollover('2026-08-30', '2026-08-30', '2026-08-31')).toBe('2026-08-31');
+  });
+
+  it('leaves a day you stepped back to on purpose where it is', () => {
+    expect(followRollover('2026-08-25', '2026-08-30', '2026-08-31')).toBe('2026-08-25');
+  });
+
+  it('changes nothing when the day has not turned', () => {
+    expect(followRollover('2026-08-30', '2026-08-30', '2026-08-30')).toBe('2026-08-30');
   });
 });

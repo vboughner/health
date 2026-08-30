@@ -82,10 +82,64 @@ export function timeOf(epochMs: number): string {
 }
 
 /**
+ * The local hour on a 24-hour clock, read in the given timezone.
+ *
+ * Both of the night-time decisions below need it, and both need it in the account's
+ * zone rather than the browser's: taking the day off one clock and the hour off the
+ * other splits the night at the wrong moment for anyone signed in from somewhere
+ * their account is not set to.
+ */
+function hourIn(timezone: string, now: Date): number {
+  return Number(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: '2-digit',
+      hourCycle: 'h23',
+    }).format(now),
+  );
+}
+
+/**
  * Before this hour, lying down counts as the small hours of a night already in
  * progress rather than the start of the next one.
  */
 export const NIGHT_SPLIT_HOUR = 12;
+
+/**
+ * Before this hour the screen has not turned over to the new date yet — the evening
+ * is still going, whatever the calendar says.
+ *
+ * Deliberately not NIGHT_SPLIT_HOUR. That one answers which evening a bedtime
+ * belongs to and splits at noon, which as a rollover would leave the day on screen
+ * a day behind until lunchtime. Two different questions that happen to both be
+ * about the night.
+ */
+export const DAY_ROLLOVER_HOUR = 4;
+
+/**
+ * The day the app should be sitting on right now: the calendar day, except in the
+ * small hours, when it is still the evening you have not gone to bed on yet.
+ *
+ * This does not replace `todayIn` and is not what anything is labelled with. `today`
+ * stays the literal calendar day, so between midnight and 4am the two disagree and
+ * the nav honestly reads "Yesterday" over the entries you are still adding to —
+ * with the forward arrow and the Today button both right there.
+ */
+export function appDay(timezone: string, now = new Date()): string {
+  const day = todayIn(timezone, now.getTime());
+  return hourIn(timezone, now) >= DAY_ROLLOVER_HOUR ? day : addDays(day, -1);
+}
+
+/**
+ * Which day to show once the rollover has happened.
+ *
+ * Only a screen that was following the current day moves with it. A day you stepped
+ * back to on purpose stays where you put it: picking the phone up in the morning
+ * should not throw away where you had got to.
+ */
+export function followRollover(date: string, lastAppDay: string, nextAppDay: string): string {
+  return date === lastAppDay ? nextAppDay : date;
+}
 
 /**
  * Which day's record a bedtime stamped right now belongs to.
@@ -97,18 +151,7 @@ export const NIGHT_SPLIT_HOUR = 12;
  */
 export function bedtimeBelongsTo(timezone: string, now = new Date()): string {
   const day = todayIn(timezone, now.getTime());
-  // Both halves of the decision read the same clock. Taking the day from the given
-  // timezone but the hour from the browser would split the night at the wrong
-  // moment for anyone whose device is not set to their account's zone.
-  const hour = Number(
-    new Intl.DateTimeFormat('en-US', {
-      timeZone: timezone,
-      hour: '2-digit',
-      hourCycle: 'h23',
-    }).format(now),
-  );
-
-  return hour >= NIGHT_SPLIT_HOUR ? day : addDays(day, -1);
+  return hourIn(timezone, now) >= NIGHT_SPLIT_HOUR ? day : addDays(day, -1);
 }
 
 /**
