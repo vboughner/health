@@ -44,3 +44,37 @@ export function estimateKcal(activity: ActivityId, minutes: number, weightLb: nu
 
   return Math.round(((met * 3.5 * kg) / 200) * minutes);
 }
+
+/**
+ * What an entry's calories become when its activity or its minutes are corrected.
+ *
+ * Derived from the entry's own snapshot, never re-estimated. `estimateKcal` scales by
+ * body weight, and body weight is meant to change — so re-running it on edit would
+ * re-price a workout from March at what you weigh today. Scaling instead keeps the
+ * weight the entry was logged at, without ever needing to know what it was: the MET
+ * formula is linear in both MET and minutes, so multiplying by the two ratios gives
+ * exactly what `estimateKcal` would have returned at that same original weight.
+ *
+ * Rounded, as `estimateKcal` is, so repeated edits can drift a calorie or two. That is
+ * well inside the error of an estimate scaled by an estimated weight.
+ */
+export function rescaleBurn(
+  entry: { activity: string; minutes: number; kcal: number },
+  next: { activity: ActivityId; minutes: number },
+): number {
+  if (!Number.isFinite(next.minutes) || next.minutes <= 0) {
+    throw new Error('Minutes must be a positive number');
+  }
+  // Refused rather than guessed: an activity dropped from the table after something
+  // was logged against it has no MET to scale from, and a silently wrong calorie
+  // figure is worse than a correction that will not save.
+  if (!isActivity(entry.activity)) {
+    throw new Error(`No MET on file for "${entry.activity}"`);
+  }
+  if (!(entry.minutes > 0) || !(entry.kcal > 0)) {
+    throw new Error('This entry has nothing to scale from');
+  }
+
+  const metRatio = ACTIVITIES[next.activity].met / ACTIVITIES[entry.activity].met;
+  return Math.round(entry.kcal * metRatio * (next.minutes / entry.minutes));
+}

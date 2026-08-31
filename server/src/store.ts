@@ -415,6 +415,36 @@ export function listExercise(db: Db, userId: number, localDay: string): Exercise
     .all(userId, localDay) as ExerciseEntry[];
 }
 
+export function getExerciseEntry(db: Db, userId: number, id: number): ExerciseEntry | undefined {
+  return db
+    .prepare(
+      `SELECT id, local_day, logged_at, activity, minutes, kcal
+       FROM exercise_log
+       WHERE user_id = ? AND id = ?`,
+    )
+    .get(userId, id) as ExerciseEntry | undefined;
+}
+
+/**
+ * A correction to an entry already logged.
+ *
+ * Writes these three columns and no others. `local_day` and `logged_at` are left
+ * exactly as they were: unlike a food entry, whose day is recomputed from the time
+ * you can edit, nothing about an exercise edit can change which day it belongs to,
+ * so there is nothing here to keep in step.
+ */
+export function updateExercise(
+  db: Db,
+  userId: number,
+  id: number,
+  patch: { activity: string; minutes: number; kcal: number },
+): void {
+  db.prepare(
+    `UPDATE exercise_log SET activity = ?, minutes = ?, kcal = ?
+     WHERE user_id = ? AND id = ?`,
+  ).run(patch.activity, patch.minutes, patch.kcal, userId, id);
+}
+
 export function deleteExercise(db: Db, userId: number, id: number): boolean {
   return (
     db.prepare('DELETE FROM exercise_log WHERE user_id = ? AND id = ?').run(userId, id).changes > 0

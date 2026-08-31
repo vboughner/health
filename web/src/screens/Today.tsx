@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api';
 import { bedtimeBelongsTo, shortDayLabel } from '../dates';
-import type { User, DaySummary, DayEntry, Activity, FoodLogEntry } from '../types';
+import type { User, DaySummary, DayEntry, Activity, FoodLogEntry, ExerciseEntry } from '../types';
 import { nothingTracked, type Settings as SettingsValue } from '../settings';
 import { CalorieHeader } from '../components/CalorieHeader';
 import { MacroBar } from '../components/MacroBar';
@@ -10,6 +10,7 @@ import { DayNav } from '../components/DayNav';
 import { CollapsibleCard } from '../components/CollapsibleCard';
 import { NothingTracked } from '../components/NothingTracked';
 import { EditEntry } from '../components/EditEntry';
+import { EditExercise } from '../components/EditExercise';
 import { WarningChip } from '../components/FoodRow';
 import {
   WeightInput,
@@ -48,6 +49,9 @@ export function Today({
   // The entry whose edit sheet is open. Held here rather than in the card so it
   // survives the card's own re-render, and so saving can bump `version` directly.
   const [editing, setEditing] = useState<FoodLogEntry | null>(null);
+  // Its own state rather than a union with `editing`: the two sheets take different
+  // props and only ever one can be open, so a union would buy nothing but casts.
+  const [editingExercise, setEditingExercise] = useState<ExerciseEntry | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -237,7 +241,7 @@ export function Today({
             <ExerciseList
               entries={exercise.entries}
               activities={activities}
-              onDelete={(id) => act(() => api.del(`/log/exercise/${id}`))}
+              onEdit={setEditingExercise}
             />
 
             <ExerciseInput
@@ -363,6 +367,19 @@ export function Today({
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
+            setVersion((v) => v + 1);
+          }}
+        />
+      )}
+
+      {editingExercise && (
+        <EditExercise
+          key={editingExercise.id}
+          entry={editingExercise}
+          activities={activities}
+          onClose={() => setEditingExercise(null)}
+          onSaved={() => {
+            setEditingExercise(null);
             setVersion((v) => v + 1);
           }}
         />

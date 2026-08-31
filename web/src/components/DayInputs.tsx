@@ -207,14 +207,19 @@ export function ExerciseInput({
   );
 }
 
+/**
+ * The day's workouts. A row opens the edit sheet, as a food row does — which is
+ * where Delete now lives, rather than behind an × sitting a thumb's width from the
+ * row you were only trying to read.
+ */
 export function ExerciseList({
   entries,
   activities,
-  onDelete,
+  onEdit,
 }: {
   entries: ExerciseEntry[];
   activities: Activity[];
-  onDelete: (id: number) => void;
+  onEdit: (entry: ExerciseEntry) => void;
 }) {
   if (entries.length === 0) return null;
 
@@ -223,20 +228,18 @@ export function ExerciseList({
   return (
     <div className="list">
       {entries.map((e) => (
-        <div key={e.id} className="entry">
+        <button
+          key={e.id}
+          className="entry"
+          onClick={() => onEdit(e)}
+          aria-label={`Edit ${label(e.activity)}`}
+        >
           <div className="entry-main">
             <div className="entry-name">{label(e.activity)}</div>
             <div className="entry-detail">{e.minutes} min</div>
           </div>
           <div className="entry-kcal">{Math.round(e.kcal)}</div>
-          <button
-            className="entry-del"
-            onClick={() => onDelete(e.id)}
-            aria-label={`Delete ${label(e.activity)}`}
-          >
-            ×
-          </button>
-        </div>
+        </button>
       ))}
     </div>
   );

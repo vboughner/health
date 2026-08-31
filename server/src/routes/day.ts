@@ -1,13 +1,21 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppOptions } from '../app';
 import { localDay } from '../domain/day';
-import { estimateKcal, isActivity, ACTIVITIES } from '../domain/exercise';
+import {
+  estimateKcal,
+  isActivity,
+  rescaleBurn,
+  ACTIVITIES,
+  type ActivityId,
+} from '../domain/exercise';
 import {
   getDailyEntry,
   upsertDailyEntry,
   latestWeight,
   insertExercise,
   listExercise,
+  getExerciseEntry,
+  updateExercise,
   deleteExercise,
   type DailyEntryPatch,
 } from '../store';
@@ -18,6 +26,12 @@ interface ExerciseBody {
   activity: string;
   minutes: number;
   date?: string;
+}
+
+/** A correction to a workout already logged. Both optional; at least one required. */
+interface EditExerciseBody {
+  activity?: string;
+  minutes?: number;
 }
 
 export function registerDayRoutes(app: FastifyInstance, opts: AppOptions): void {
@@ -102,6 +116,66 @@ export function registerDayRoutes(app: FastifyInstance, opts: AppOptions): void 
 
       const entry = listExercise(opts.db, user.id, day).find((e) => e.id === id);
       return reply.code(201).send({ entry });
+    },
+  );
+
+  /**
+   * Correct a workout already logged.
+   *
+   * Deliberately does not look up a body weight. The POST above needs one because it
+   * has no prior figure to work from; this route has one, and `rescaleBurn` derives
+   * the new calories from it — which is what stops an edit re-pricing a workout from
+   * months ago at what you weigh today. Reaching for `latestWeight` here is precisely
+   * the bug.
+   */
+  app.patch<{ Params: { id: string }; Body: EditExerciseBody }>(
+    '/log/exercise/:id',
+    { preHandler: app.requireUser },
+    async (request, reply) => {
+      const user = request.user!;
+      const id = Number(request.params.id);
+      if (!Number.isInteger(id)) return reply.code(400).send({ error: 'Invalid id' });
+
+      const entry = getExerciseEntry(opts.db, user.id, id);
+      if (!entry) return reply.code(404).send({ error: 'Entry not found' });
+
+      const body = request.body ?? ({} as EditExerciseBody);
+      const has = (key: keyof EditExerciseBody) => body[key] !== undefined && body[key] !== null;
+
+      if (!has('activity') && !has('minutes')) {
+        return reply.code(400).send({ error: 'Nothing to change' });
+      }
+
+      let activity = entry.activity;
+      if (has('activity')) {
+        if (!isActivity(body.activity as string)) {
+          return reply
+            .code(400)
+            .send({ error: `Activity must be one of ${Object.keys(ACTIVITIES).join(', ')}` });
+        }
+        activity = body.activity as string;
+      }
+
+      let minutes = entry.minutes;
+      if (has('minutes')) {
+        if (typeof body.minutes !== 'number' || !(body.minutes > 0)) {
+          return reply.code(400).send({ error: 'Minutes must be a positive number' });
+        }
+        minutes = body.minutes;
+      }
+
+      let kcal: number;
+      try {
+        kcal = rescaleBurn(entry, { activity: activity as ActivityId, minutes });
+      } catch (err) {
+        return reply
+          .code(400)
+          .send({ error: err instanceof Error ? err.message : 'Could not rescale that' });
+      }
+
+      updateExercise(opts.db, user.id, id, { activity, minutes, kcal });
+
+      return reply.send({ entry: getExerciseEntry(opts.db, user.id, id) });
     },
   );
 

@@ -185,6 +185,32 @@ time prefills 12:00 rather than the real hour. Well outside a 9am–7pm window, 
 "Yesterday" heading is the honest signal. Moving the boundary into `local_day` would
 fix it and re-judge every past day's eating window; that was considered and rejected.
 
+**An exercise edit rescales its snapshot too, for a sharper reason.**
+`exercise_log.kcal` comes from `estimateKcal(activity, minutes, weightThen)`, and body
+weight is *meant* to change — so re-estimating on edit would re-price every past
+workout at what you weigh today. `PATCH /log/exercise/:id` therefore never calls
+`latestWeight`; `rescaleBurn` multiplies the row's own figure by the MET ratio and the
+minutes ratio. Because the MET formula is linear in both, that is exactly what
+`estimateKcal` would have returned at the original weight — so not having a weight
+lookup is what makes re-pricing impossible, rather than merely an optimisation. There
+is a route test that changes the weight between logging and editing.
+
+Repeated edits can drift a calorie or two, since the snapshot was already rounded.
+That is well inside the error of an estimate scaled by an estimated weight.
+
+What does **not** carry over from the food sheet is "the amount and the calories are
+two spellings of one number". A food's calories are a measured fact; an exercise's are
+only ever an estimate from the MET table, with no second source, so a box to type them
+in would be an override dressed as a correction and nothing would record that it had
+happened. `EditExercise` shows the figure and never takes one. For the same reason the
+sheet is titled "Workout" rather than the activity: the activity is a picker inside it,
+and a heading echoing that picker is a duplicate until you touch it and a contradiction
+afterwards.
+
+The time and the day are not editable either — `logged_at` is displayed nowhere and
+nothing derives from it, since the eating window reads food timestamps only. A workout
+on the wrong day still means delete and re-log.
+
 **`Today.tsx` renders from `shown` (= `summary.date`), never from `date`.** Stepping
 between days keeps the previous day on screen, dimmed, until the new one arrives —
 swapping in a spinner collapsed the page and read as a flicker. During that gap `date`
@@ -235,7 +261,7 @@ silently. On the Mac, `localhost:5174` counts as secure and can be used to test 
 - Prettier: 2-space, single quotes, semicolons, 100 columns. Run `npm run format`.
 - Tests required for bug fixes (a regression test that fails before, passes after) and
   for new domain functions. Route changes get an integration test via Fastify
-  `app.inject()` against an in-memory database. 401 server + 114 web tests.
+  `app.inject()` against an in-memory database. 420 server + 121 web tests.
 - **Both packages type-check their tests**, and each `npm test` runs `tsc` before
   vitest, so a test that does not compile fails the suite rather than passing quietly.
   The two do it differently because their build configs differ:
