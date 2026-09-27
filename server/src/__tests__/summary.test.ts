@@ -462,3 +462,119 @@ describe('effective-dated goals', () => {
     await app.close();
   });
 });
+
+describe('food.protein', () => {
+  it('reports grams against the range in force that day', async () => {
+    const db = testDb();
+    const app = testApp(db, fakeUsda([USDA_BANANA]));
+    const { userId, cookie } = await loginAs(app, db, 'van');
+
+    putGoalPeriod(db, userId, {
+      effective_from: '2026-01-01',
+      kcal_budget: 2400,
+      burn_target: 960,
+      window_start: '09:00',
+      window_end: '19:00',
+      protein_min_g: null,
+      protein_max_g: null,
+      weights_per_week: null,
+    });
+    putGoalPeriod(db, userId, {
+      effective_from: '2026-09-20',
+      kcal_budget: 2400,
+      burn_target: 960,
+      window_start: '09:00',
+      window_end: '19:00',
+      protein_min_g: 90,
+      protein_max_g: 130,
+      weights_per_week: 2,
+    });
+
+    const before = await app.inject({
+      method: 'GET',
+      url: '/api/summary/2026-09-01',
+      headers: { cookie },
+    });
+    const after = await app.inject({
+      method: 'GET',
+      url: '/api/summary/2026-09-25',
+      headers: { cookie },
+    });
+
+    expect(before.json().food.protein).toEqual({ grams: 0, min: null, max: null, floor: false });
+    expect(after.json().food.protein).toEqual({ grams: 0, min: 90, max: 130, floor: false });
+    await app.close();
+  });
+
+  it('is a floor when a calories-only entry shares the day with a real food', async () => {
+    const db = testDb();
+    const app = testApp(db, fakeUsda([USDA_BANANA]));
+    const { cookie } = await loginAs(app, db, 'van');
+    const day = '2026-09-25';
+    const at = (hhmm: string) => Date.parse(`${day}T${hhmm}:00-08:00`);
+    const grams = 150;
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/log/food',
+      payload: {
+        food: { source: 'usda', ...USDA_BANANA },
+        quantity: grams,
+        unit: 'g',
+        eaten_at: at('09:00'),
+      },
+      headers: { cookie },
+    });
+    await app.inject({
+      method: 'POST',
+      url: '/api/log/quick',
+      payload: { name: 'Chipotle bowl', kcal: 720, eaten_at: at('13:00') },
+      headers: { cookie },
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/summary/${day}`,
+      headers: { cookie },
+    });
+
+    expect(res.json().food.protein).toMatchObject({
+      grams: Math.round((USDA_BANANA.protein_g * grams) / 100),
+      floor: true,
+    });
+    await app.close();
+  });
+
+  it('is not a floor when every entry that day has macros on record', async () => {
+    const db = testDb();
+    const app = testApp(db, fakeUsda([USDA_BANANA]));
+    const { cookie } = await loginAs(app, db, 'van');
+    const day = '2026-09-25';
+    const at = (hhmm: string) => Date.parse(`${day}T${hhmm}:00-08:00`);
+    const grams = 150;
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/log/food',
+      payload: {
+        food: { source: 'usda', ...USDA_BANANA },
+        quantity: grams,
+        unit: 'g',
+        eaten_at: at('09:00'),
+      },
+      headers: { cookie },
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/summary/${day}`,
+      headers: { cookie },
+    });
+
+    expect(res.json().food.protein).toMatchObject({
+      grams: Math.round((USDA_BANANA.protein_g * grams) / 100),
+      floor: false,
+    });
+    await app.close();
+  });
+});

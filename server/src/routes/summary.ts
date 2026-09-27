@@ -55,6 +55,15 @@ export function registerSummaryRoutes(app: FastifyInstance, opts: AppOptions): v
           macro_unknown_kcal: unaccountedKcal(foods),
           budget: goals.kcal_budget,
           remaining: Math.round(goals.kcal_budget - totals.kcal),
+          // Grams against the range in force on this day. `floor` says the figure can
+          // only be a lower bound: a calories-only entry carries no protein, and
+          // nothing here guesses what it had.
+          protein: {
+            grams: Math.round(totals.protein_g),
+            min: goals.protein_min_g,
+            max: goals.protein_max_g,
+            floor: foods.some((f) => f.macros_unknown),
+          },
         },
         exercise: {
           entries: exercise,
