@@ -138,3 +138,15 @@ describe('rescaleBurn', () => {
     expect(() => rescaleBurn(run30, { activity: 'running', minutes: -5 })).toThrow(/positive/);
   });
 });
+
+describe('hiking', () => {
+  it('is an activity, at the Compendium cross-country MET', () => {
+    expect(isActivity('hiking')).toBe(true);
+    expect(ACTIVITIES.hiking).toEqual({ label: 'Hiking', met: 6.0 });
+  });
+
+  it('sits right after climbing in the picker', () => {
+    const ids = Object.keys(ACTIVITIES);
+    expect(ids.indexOf('hiking')).toBe(ids.indexOf('climbing') + 1);
+  });
+});
