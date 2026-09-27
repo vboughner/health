@@ -277,6 +277,9 @@ describe('GET /api/trends', () => {
       burn_target: 960,
       window_start: '09:00',
       window_end: '19:00',
+      protein_min_g: null,
+      protein_max_g: null,
+      weights_per_week: null,
     });
     putGoalPeriod(db, userId, {
       effective_from: today,
@@ -284,6 +287,9 @@ describe('GET /api/trends', () => {
       burn_target: 960,
       window_start: '09:00',
       window_end: '19:00',
+      protein_min_g: null,
+      protein_max_g: null,
+      weights_per_week: null,
     });
 
     // 2500 calories on each of two days: under 3000 yesterday, over 2000 today.

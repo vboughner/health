@@ -22,7 +22,7 @@ const PLAN_MAX_CHARS = 50_000;
 const SCOPES = ['from_today', 'correction'] as const;
 type Scope = (typeof SCOPES)[number];
 
-type GoalsBody = Goals & { scope?: string };
+type GoalsBody = Partial<Goals> & { scope?: string };
 
 function isScope(value: unknown): value is Scope {
   return typeof value === 'string' && (SCOPES as readonly string[]).includes(value);
@@ -34,30 +34,50 @@ export function registerSettingsRoutes(app: FastifyInstance, opts: AppOptions): 
     { preHandler: app.requireUser },
     async (request, reply) => {
       const user = request.user!;
-      const { scope, ...goals } = request.body ?? ({} as GoalsBody);
+      const { scope, ...body } = request.body ?? ({} as GoalsBody);
 
       if (!isScope(scope)) {
         return reply.code(400).send({ error: `scope must be one of ${SCOPES.join(', ')}` });
       }
 
+      const today = localDay(Date.now(), user.timezone);
+      const current = goalsForDay(listGoalPeriods(opts.db, user.id), today);
+
+      // A target the body does not mention keeps its current value; one sent as null is
+      // cleared. A phone still on the cached four-field form would otherwise erase both
+      // targets the first time it saved a budget.
+      const keep = <K extends keyof Goals>(key: K): Goals[K] =>
+        key in body ? (body as Goals)[key] : current[key];
+
+      const goals = {
+        ...body,
+        protein_min_g: keep('protein_min_g'),
+        protein_max_g: keep('protein_max_g'),
+        weights_per_week: keep('weights_per_week'),
+      };
+
       const problem = validateGoals(goals);
       if (problem) return reply.code(400).send({ error: problem });
 
-      const today = localDay(Date.now(), user.timezone);
-      const effective_from =
-        scope === 'from_today'
-          ? today
-          : goalsForDay(listGoalPeriods(opts.db, user.id), today).effective_from;
+      // validateGoals has just confirmed every field below is present and of the right
+      // type — `goals` only fails to satisfy Goals in the compiler's eyes because it is
+      // built from a Partial.
+      const validated = goals as Goals;
+
+      const effective_from = scope === 'from_today' ? today : current.effective_from;
 
       // Field by field rather than spread. `goals` is whatever survived the rest
       // destructuring of the request body, and better-sqlite3 throws on a named
       // parameter its statement does not use — a stray key in the JSON would be a
       // 500 rather than the 400 it deserves.
-      const saved = {
-        kcal_budget: goals.kcal_budget,
-        burn_target: goals.burn_target,
-        window_start: goals.window_start,
-        window_end: goals.window_end,
+      const saved: Goals = {
+        kcal_budget: validated.kcal_budget,
+        burn_target: validated.burn_target,
+        window_start: validated.window_start,
+        window_end: validated.window_end,
+        protein_min_g: validated.protein_min_g,
+        protein_max_g: validated.protein_max_g,
+        weights_per_week: validated.weights_per_week,
       };
 
       putGoalPeriod(opts.db, user.id, { effective_from, ...saved });

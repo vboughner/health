@@ -8,16 +8,22 @@ function period(effective_from: string, kcal_budget = 2400): GoalPeriod {
     burn_target: 960,
     window_start: '09:00',
     window_end: '19:00',
+    protein_min_g: null,
+    protein_max_g: null,
+    weights_per_week: null,
   };
 }
 
 describe('DEFAULT_GOALS', () => {
-  it('is what migration 001 used as column defaults', () => {
+  it('is what migration 001 used as column defaults, with no protein or weights target', () => {
     expect(DEFAULT_GOALS).toEqual({
       kcal_budget: 2400,
       burn_target: 960,
       window_start: '09:00',
       window_end: '19:00',
+      protein_min_g: null,
+      protein_max_g: null,
+      weights_per_week: null,
     });
   });
 });
@@ -69,6 +75,64 @@ describe('validateGoals', () => {
 
   it('rejects a non-integer budget', () => {
     expect(validateGoals({ ...DEFAULT_GOALS, kcal_budget: 2400.5 })).toContain('whole');
+  });
+});
+
+describe('validateGoals — protein range', () => {
+  const withProtein = (min: unknown, max: unknown) => ({
+    ...DEFAULT_GOALS,
+    protein_min_g: min,
+    protein_max_g: max,
+  });
+
+  it('accepts no range at all', () => {
+    expect(validateGoals(withProtein(null, null))).toBeNull();
+  });
+
+  it('accepts a range, and a range of one value', () => {
+    expect(validateGoals(withProtein(90, 130))).toBeNull();
+    expect(validateGoals(withProtein(100, 100))).toBeNull();
+  });
+
+  it('refuses one end without the other', () => {
+    expect(validateGoals(withProtein(90, null))).toBe(
+      'Set both ends of the protein range, or neither',
+    );
+    expect(validateGoals(withProtein(null, 130))).toBe(
+      'Set both ends of the protein range, or neither',
+    );
+  });
+
+  it('refuses a range that runs backwards', () => {
+    expect(validateGoals(withProtein(130, 90))).toContain('Protein');
+  });
+
+  it('refuses zero, fractions, and absurd amounts', () => {
+    expect(validateGoals(withProtein(0, 130))).toContain('Protein');
+    expect(validateGoals(withProtein(90.5, 130))).toContain('whole');
+    expect(validateGoals(withProtein(90, 401))).toContain('Protein');
+    expect(validateGoals(withProtein('90', 130))).toContain('Protein');
+  });
+
+  it('accepts the edges', () => {
+    expect(validateGoals(withProtein(1, 400))).toBeNull();
+  });
+});
+
+describe('validateGoals — weights per week', () => {
+  const withWeights = (n: unknown) => ({ ...DEFAULT_GOALS, weights_per_week: n });
+
+  it('accepts no target, zero, and up to fourteen', () => {
+    expect(validateGoals(withWeights(null))).toBeNull();
+    // Zero is a real target — a rest week — met by doing nothing.
+    expect(validateGoals(withWeights(0))).toBeNull();
+    expect(validateGoals(withWeights(14))).toBeNull();
+  });
+
+  it('refuses negatives, fractions, and more than twice a day', () => {
+    expect(validateGoals(withWeights(-1))).toContain('Weights');
+    expect(validateGoals(withWeights(2.5))).toContain('whole');
+    expect(validateGoals(withWeights(15))).toContain('Weights');
   });
 });
 

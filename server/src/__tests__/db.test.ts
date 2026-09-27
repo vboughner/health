@@ -50,6 +50,7 @@ describe('migrations', () => {
       .map((r) => (r as { version: string }).version);
 
     expect(versions).toContain('001_init.sql');
+    expect(versions).toContain('009_protein_weights.sql');
 
     db.close();
   });

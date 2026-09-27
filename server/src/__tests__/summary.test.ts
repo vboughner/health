@@ -401,6 +401,9 @@ describe('effective-dated goals', () => {
       burn_target: 960,
       window_start: '09:00',
       window_end: '19:00',
+      protein_min_g: null,
+      protein_max_g: null,
+      weights_per_week: null,
     });
     putGoalPeriod(db, userId, {
       effective_from: '2026-08-01',
@@ -408,6 +411,9 @@ describe('effective-dated goals', () => {
       burn_target: 900,
       window_start: '10:00',
       window_end: '20:00',
+      protein_min_g: null,
+      protein_max_g: null,
+      weights_per_week: null,
     });
 
     const july = await app.inject({
@@ -440,6 +446,9 @@ describe('effective-dated goals', () => {
       burn_target: 900,
       window_start: '10:00',
       window_end: '20:00',
+      protein_min_g: null,
+      protein_max_g: null,
+      weights_per_week: null,
     });
 
     const res = await app.inject({

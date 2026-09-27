@@ -32,6 +32,9 @@ function currentGoals(opts: AppOptions, user: { id: number; timezone: string }):
     burn_target: period.burn_target,
     window_start: period.window_start,
     window_end: period.window_end,
+    protein_min_g: period.protein_min_g,
+    protein_max_g: period.protein_max_g,
+    weights_per_week: period.weights_per_week,
   };
 }
 

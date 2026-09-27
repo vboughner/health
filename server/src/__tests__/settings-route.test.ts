@@ -13,6 +13,16 @@ const GOALS = {
   window_end: '20:00',
 };
 
+// GOALS plus the fields a saved period always carries. Most assertions below use
+// GOALS directly, since only "keeps targets a body leaves out" cares that GOALS itself
+// is the four-field body an old client would still send.
+const GOALS_WITH_NO_TARGETS = {
+  ...GOALS,
+  protein_min_g: null,
+  protein_max_g: null,
+  weights_per_week: null,
+};
+
 function today() {
   return localDay(Date.now(), 'America/Los_Angeles');
 }
@@ -121,7 +131,7 @@ describe('PUT /settings/goals', () => {
     });
 
     expect(res.statusCode).toBe(200);
-    expect(res.json().goals).toEqual(GOALS);
+    expect(res.json().goals).toEqual(GOALS_WITH_NO_TARGETS);
 
     const periods = listGoalPeriods(db, userId);
     expect(periods).toHaveLength(2);
@@ -233,7 +243,7 @@ describe('PUT /settings/goals', () => {
     });
 
     const me = await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie } });
-    expect(me.json().goals).toEqual(GOALS);
+    expect(me.json().goals).toEqual(GOALS_WITH_NO_TARGETS);
     await app.close();
   });
 
@@ -309,6 +319,129 @@ describe('PUT /settings/goals', () => {
     });
 
     expect(longAgo.json().food.budget).toBe(GOALS.kcal_budget);
+    await app.close();
+  });
+
+  it('stores a protein range and a weights target, and /auth/me returns them', async () => {
+    const db = testDb();
+    const app = testApp(db);
+    const { cookie } = await loginAs(app, db, 'van');
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/settings/goals',
+      headers: { cookie },
+      payload: {
+        ...GOALS,
+        protein_min_g: 90,
+        protein_max_g: 130,
+        weights_per_week: 2,
+        scope: 'from_today',
+      },
+    });
+    expect(res.statusCode).toBe(200);
+
+    const me = await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie } });
+    expect(me.json().goals).toMatchObject({
+      protein_min_g: 90,
+      protein_max_g: 130,
+      weights_per_week: 2,
+    });
+    await app.close();
+  });
+
+  it('starts an account with no protein or weights target', async () => {
+    const db = testDb();
+    const app = testApp(db);
+    const { cookie } = await loginAs(app, db, 'van');
+
+    const me = await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie } });
+    expect(me.json().goals).toMatchObject({
+      protein_min_g: null,
+      protein_max_g: null,
+      weights_per_week: null,
+    });
+    await app.close();
+  });
+
+  it('keeps targets a body leaves out, so an older form cannot erase them', async () => {
+    const db = testDb();
+    const app = testApp(db);
+    const { cookie } = await loginAs(app, db, 'van');
+    const put = (payload: Record<string, unknown>) =>
+      app.inject({ method: 'PUT', url: '/api/settings/goals', headers: { cookie }, payload });
+
+    await put({
+      ...GOALS,
+      protein_min_g: 90,
+      protein_max_g: 130,
+      weights_per_week: 2,
+      scope: 'from_today',
+    });
+    // The four-field body a phone on the cached old shell would still send.
+    const res = await put({ ...GOALS, kcal_budget: 2300, scope: 'from_today' });
+
+    expect(res.json().goals).toMatchObject({
+      kcal_budget: 2300,
+      protein_min_g: 90,
+      protein_max_g: 130,
+      weights_per_week: 2,
+    });
+    await app.close();
+  });
+
+  it('clears a target sent as null', async () => {
+    const db = testDb();
+    const app = testApp(db);
+    const { cookie } = await loginAs(app, db, 'van');
+    const put = (payload: Record<string, unknown>) =>
+      app.inject({ method: 'PUT', url: '/api/settings/goals', headers: { cookie }, payload });
+
+    await put({ ...GOALS, protein_min_g: 90, protein_max_g: 130, scope: 'from_today' });
+    const res = await put({
+      ...GOALS,
+      protein_min_g: null,
+      protein_max_g: null,
+      scope: 'from_today',
+    });
+
+    expect(res.json().goals).toMatchObject({ protein_min_g: null, protein_max_g: null });
+    await app.close();
+  });
+
+  it('rejects half a protein range', async () => {
+    const db = testDb();
+    const app = testApp(db);
+    const { cookie } = await loginAs(app, db, 'van');
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/settings/goals',
+      headers: { cookie },
+      payload: { ...GOALS, protein_min_g: 90, protein_max_g: null, scope: 'from_today' },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe('Set both ends of the protein range, or neither');
+    await app.close();
+  });
+
+  it('keeps a past period at no target when a target is set from today', async () => {
+    const db = testDb();
+    const app = testApp(db);
+    const { userId, cookie } = await loginAs(app, db, 'van');
+    withHistory(db, userId);
+
+    await app.inject({
+      method: 'PUT',
+      url: '/api/settings/goals',
+      headers: { cookie },
+      payload: { ...GOALS, protein_min_g: 90, protein_max_g: 130, scope: 'from_today' },
+    });
+
+    const periods = listGoalPeriods(db, userId);
+    expect(periods[0]).toMatchObject({ effective_from: '2020-01-01', protein_min_g: null });
+    expect(periods[1]).toMatchObject({ effective_from: today(), protein_min_g: 90 });
     await app.close();
   });
 });

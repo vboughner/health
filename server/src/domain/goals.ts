@@ -17,6 +17,15 @@ export interface Goals {
   /** 24-hour HH:MM, local. */
   window_start: string;
   window_end: string;
+  /**
+   * Grams a day, both ends inclusive; both null means no target. A range rather than a
+   * share of calories because the September 2026 plan is set in grams per kilogram,
+   * which no percentage of a varying intake can express.
+   */
+  protein_min_g: number | null;
+  protein_max_g: number | null;
+  /** Days with a weights session per Mon–Sun week. Null is no target; 0 is a rest week. */
+  weights_per_week: number | null;
 }
 
 /** A Goals with the first day it applied to. */
@@ -30,11 +39,16 @@ export interface GoalPeriod extends Goals {
  * August 2026. These were column defaults in migration 001; with the columns gone
  * they need a home in code, and every new account is seeded from here.
  */
+// protein_min_g / protein_max_g / weights_per_week are null: those targets are specific
+// to one person's revised plan and are not handed to a new account.
 export const DEFAULT_GOALS: Goals = {
   kcal_budget: 2400,
   burn_target: 960,
   window_start: '09:00',
   window_end: '19:00',
+  protein_min_g: null,
+  protein_max_g: null,
+  weights_per_week: null,
 };
 
 const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -42,6 +56,8 @@ const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const BUDGET_MIN = 500;
 const BUDGET_MAX = 10000;
 const BURN_MAX = 5000;
+const PROTEIN_MAX = 400;
+const WEIGHTS_MAX = 14;
 
 /** Minutes since local midnight. Only ever called on a string HHMM_RE has passed. */
 function minutes(hhmm: string): number {
@@ -87,6 +103,31 @@ export function validateGoals(input: unknown): string | null {
   // that wraps. A window that wraps would silently mark every day non-compliant.
   if (minutes(g.window_end) <= minutes(g.window_start)) {
     return 'Window end must be after window start';
+  }
+
+  const pMin = g.protein_min_g ?? null;
+  const pMax = g.protein_max_g ?? null;
+  if ((pMin === null) !== (pMax === null)) {
+    return 'Set both ends of the protein range, or neither';
+  }
+  if (pMin !== null) {
+    for (const v of [pMin, pMax]) {
+      if (typeof v !== 'number' || !Number.isFinite(v)) return 'Protein must be a number';
+      if (!Number.isInteger(v)) return 'Protein must be a whole number of grams';
+      if (v < 1 || v > PROTEIN_MAX) return `Protein must be between 1 and ${PROTEIN_MAX} g`;
+    }
+    if ((pMin as number) > (pMax as number)) return 'Protein minimum must not exceed the maximum';
+  }
+
+  const weights = g.weights_per_week ?? null;
+  if (weights !== null) {
+    if (typeof weights !== 'number' || !Number.isFinite(weights)) {
+      return 'Weights sessions must be a number';
+    }
+    if (!Number.isInteger(weights)) return 'Weights sessions must be a whole number';
+    if (weights < 0 || weights > WEIGHTS_MAX) {
+      return `Weights sessions must be between 0 and ${WEIGHTS_MAX} a week`;
+    }
   }
 
   return null;

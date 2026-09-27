@@ -669,7 +669,8 @@ export function deleteGoalRecording(db: Db, userId: number): GoalRecording | und
 export function listGoalPeriods(db: Db, userId: number): GoalPeriod[] {
   return db
     .prepare(
-      `SELECT effective_from, kcal_budget, burn_target, window_start, window_end
+      `SELECT effective_from, kcal_budget, burn_target, window_start, window_end,
+              protein_min_g, protein_max_g, weights_per_week
        FROM goal_periods WHERE user_id = ? ORDER BY effective_from`,
     )
     .all(userId) as GoalPeriod[];
@@ -686,13 +687,18 @@ export function listGoalPeriods(db: Db, userId: number): GoalPeriod[] {
 export function putGoalPeriod(db: Db, userId: number, period: GoalPeriod): void {
   db.prepare(
     `INSERT INTO goal_periods
-       (user_id, effective_from, kcal_budget, burn_target, window_start, window_end)
-     VALUES (@user_id, @effective_from, @kcal_budget, @burn_target, @window_start, @window_end)
+       (user_id, effective_from, kcal_budget, burn_target, window_start, window_end,
+        protein_min_g, protein_max_g, weights_per_week)
+     VALUES (@user_id, @effective_from, @kcal_budget, @burn_target, @window_start, @window_end,
+             @protein_min_g, @protein_max_g, @weights_per_week)
      ON CONFLICT(user_id, effective_from) DO UPDATE SET
-       kcal_budget  = excluded.kcal_budget,
-       burn_target  = excluded.burn_target,
-       window_start = excluded.window_start,
-       window_end   = excluded.window_end`,
+       kcal_budget      = excluded.kcal_budget,
+       burn_target      = excluded.burn_target,
+       window_start     = excluded.window_start,
+       window_end       = excluded.window_end,
+       protein_min_g    = excluded.protein_min_g,
+       protein_max_g    = excluded.protein_max_g,
+       weights_per_week = excluded.weights_per_week`,
   ).run({ user_id: userId, ...period });
 }
 
