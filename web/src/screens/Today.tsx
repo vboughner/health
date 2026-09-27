@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { api } from '../api';
 import { bedtimeBelongsTo, shortDayLabel } from '../dates';
 import type { User, DaySummary, DayEntry, Activity, FoodLogEntry, ExerciseEntry } from '../types';
-import { nothingTracked, type Settings as SettingsValue } from '../settings';
+import { isOn, nothingTracked, type Settings as SettingsValue } from '../settings';
 import { CalorieHeader } from '../components/CalorieHeader';
 import { MacroBar } from '../components/MacroBar';
+import { ProteinBar } from '../components/ProteinBar';
 import { WindowBar } from '../components/WindowBar';
 import { DayNav } from '../components/DayNav';
 import { CollapsibleCard } from '../components/CollapsibleCard';
@@ -289,23 +290,25 @@ export function Today({
 
         {/* Both halves are read off the same food log and are both about how the
             eating went rather than what it was, so they share a heading and fold
-            away together. Collapsed, the heading keeps the window's two ends: the
-            macros need three numbers to say anything, the window needs two. */}
+            away together. Collapsed, the heading keeps protein and the window's two
+            ends. The title itself drops "macros" when Macros is off, since a heading
+            promising a split it is not drawing would be its own small lie. */}
         {settings.food && (
           <CollapsibleCard
             id="macros-window"
-            title="Eating macros and window"
-            summary={
-              win.first !== null && win.last !== null ? `${win.first}–${win.last}` : undefined
-            }
+            title={isOn(settings, 'macros') ? 'Eating macros and window' : 'Eating window'}
+            summary={macrosWindowSummary(win, isOn(settings, 'protein') ? food.protein : null)}
           >
-            <MacroBar
-              protein_g={food.totals.protein_g}
-              fat_g={food.totals.fat_g}
-              carb_g={food.totals.carb_g}
-              unknownKcal={food.macro_unknown_kcal}
-              totalKcal={food.totals.kcal}
-            />
+            {isOn(settings, 'macros') && (
+              <MacroBar
+                protein_g={food.totals.protein_g}
+                fat_g={food.totals.fat_g}
+                carb_g={food.totals.carb_g}
+                unknownKcal={food.macro_unknown_kcal}
+                totalKcal={food.totals.kcal}
+              />
+            )}
+            {isOn(settings, 'protein') && <ProteinBar protein={food.protein} />}
             <div className="card-split">
               <WindowBar window={win} />
             </div>
@@ -425,6 +428,17 @@ export function morningSummary(
   if (settings.sleep && day.sleep_end !== null) {
     parts.push(`up ${formatTime(day.sleep_end, timezone)}`);
   }
+  return parts.length ? parts.join(' · ') : undefined;
+}
+
+/** What the macros-and-window card keeps in its heading when folded. */
+export function macrosWindowSummary(
+  win: { first: string | null; last: string | null },
+  protein: { grams: number; floor: boolean } | null,
+): string | undefined {
+  const parts: string[] = [];
+  if (protein) parts.push(`${protein.grams}${protein.floor ? '+' : ''} g protein`);
+  if (win.first !== null && win.last !== null) parts.push(`${win.first}–${win.last}`);
   return parts.length ? parts.join(' · ') : undefined;
 }
 

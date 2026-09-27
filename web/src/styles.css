@@ -656,6 +656,74 @@ textarea:focus {
   white-space: nowrap;
 }
 
+/* ---------- protein ---------- */
+
+/* Not the protein yellow — this is about hitting a target, not which macro it is —
+   and not amber, which is spoken for. Neutral until the range is reached, then the
+   accent green that means "met" everywhere else.
+
+   CVD validator (dataviz skill, OKLab ΔE×100, worst of protan/deutan):
+     --accent vs --carb        dark 18.8, light 10.2 (below the 15 normal-vision
+                                floor — the same accent/carb pair the macro bar
+                                already draws side by side; unchanged here)
+     --accent-dim vs --surface-2   dark 21.6 (passes), light 4.7 (fails — a pale
+                                mint on a near-white surface is not a visible band)
+   Light mode failed separation, so .protein-band (only) was changed from a flat
+   --accent-dim fill to the .win-target treatment already used for the eating
+   window's target band: a soft accent wash plus a dashed accent border. The wash
+   alone still does not clear the floor (light 5.3), but the border does in both
+   themes (dark 31.8, light 17.8) and is what a viewer actually reads as the
+   band's edge. */
+.protein {
+  margin-top: 16px;
+}
+
+.protein-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 7px;
+}
+
+.protein-title {
+  color: var(--text-faint);
+}
+
+.protein-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.protein-bar {
+  position: relative;
+  height: 9px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.protein-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-left: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+  border-right: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.protein-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: var(--text-faint);
+  transition: width 0.3s ease;
+}
+
+.protein-fill-in {
+  background: var(--accent);
+}
+
 /* ---------- lists ---------- */
 
 .list {

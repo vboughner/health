@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { calorieSummary, morningSummary, bedtimeSummary } from '../screens/Today';
+import {
+  calorieSummary,
+  morningSummary,
+  bedtimeSummary,
+  macrosWindowSummary,
+} from '../screens/Today';
 import type { Settings } from '../settings';
 
 const TZ = 'America/Los_Angeles';
@@ -82,5 +87,24 @@ describe('bedtimeSummary', () => {
     const day = { ...blankDay, sleep_start: at('22:15'), goals_reviewed: true };
     expect(bedtimeSummary(day, { ...all, goals: false }, TZ)).toBe('down 10:15 PM');
     expect(bedtimeSummary(day, { ...all, sleep: false }, TZ)).toBe('✓ reviewed');
+  });
+});
+
+describe('macrosWindowSummary', () => {
+  it('carries protein and the window', () => {
+    expect(macrosWindowSummary({ first: '9:14', last: '6:40' }, { grams: 72, floor: false })).toBe(
+      '72 g protein · 9:14–6:40',
+    );
+  });
+
+  it('marks a floor', () => {
+    expect(macrosWindowSummary({ first: null, last: null }, { grams: 72, floor: true })).toBe(
+      '72+ g protein',
+    );
+  });
+
+  it('drops protein when it is not being drawn, and says nothing for an empty day', () => {
+    expect(macrosWindowSummary({ first: '9:14', last: '6:40' }, null)).toBe('9:14–6:40');
+    expect(macrosWindowSummary({ first: null, last: null }, null)).toBeUndefined();
   });
 });

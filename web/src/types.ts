@@ -126,6 +126,8 @@ export interface DaySummary {
     macro_unknown_kcal: number;
     budget: number;
     remaining: number;
+    /** The day's protein against the range in force that day. */
+    protein: { grams: number; min: number | null; max: number | null; floor: boolean };
   };
   exercise: {
     entries: ExerciseEntry[];
