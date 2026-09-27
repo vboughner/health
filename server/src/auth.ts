@@ -21,8 +21,8 @@ const USER_COLUMNS = `id, username, timezone, ${FEATURE_KEYS.map((k) => FEATURE_
 type UserRow = { id: number; username: string; timezone: string } & Record<string, number>;
 
 /**
- * The five feature flags ride along on the user row because getSessionUser calls this
- * on every authenticated request. Five integers on a row already being fetched are
+ * The feature flags ride along on the user row because getSessionUser calls this
+ * on every authenticated request. A few integers on a row already being fetched are
  * free; the goals are a second table and the plan can run to kilobytes, so neither is
  * here. Routes that need those ask for them.
  */

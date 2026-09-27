@@ -704,7 +704,7 @@ export function putGoalPeriod(db: Db, userId: number, period: GoalPeriod): void 
 
 // ---------------------------------------------------------------- account settings
 
-/** Write all five toggles at once. Reading them is part of getUserById. */
+/** Write all toggles at once. Reading them is part of getUserById. */
 export function setFeatures(db: Db, userId: number, features: Features): void {
   const assignments = FEATURE_KEYS.map((key) => `${FEATURE_COLUMNS[key]} = ?`).join(', ');
   const values = FEATURE_KEYS.map((key) => (features[key] ? 1 : 0));

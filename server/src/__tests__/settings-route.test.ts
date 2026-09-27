@@ -446,7 +446,15 @@ describe('PUT /settings/goals', () => {
   });
 });
 
-const ALL_ON = { food: true, exercise: true, sleep: true, weight: true, goals: true };
+const ALL_ON = {
+  food: true,
+  exercise: true,
+  sleep: true,
+  weight: true,
+  goals: true,
+  macros: true,
+  protein: true,
+};
 
 describe('PUT /settings/features', () => {
   it('rejects an anonymous caller', async () => {
@@ -500,7 +508,23 @@ describe('PUT /settings/features', () => {
     await app.close();
   });
 
-  it('rejects a body missing a feature rather than guessing at it', async () => {
+  it('keeps a feature the body leaves out, so an older app cannot reset it', async () => {
+    const db = testDb();
+    const app = testApp(db);
+    const { cookie } = await loginAs(app, db, 'van');
+    const put = (payload: Record<string, boolean>) =>
+      app.inject({ method: 'PUT', url: '/api/settings/features', headers: { cookie }, payload });
+
+    await put({ ...ALL_ON, protein: false });
+    // The five keys a phone on the cached old shell knows about.
+    const res = await put({ food: true, exercise: false, sleep: true, weight: true, goals: true });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().features).toEqual({ ...ALL_ON, exercise: false, protein: false });
+    await app.close();
+  });
+
+  it('rejects a feature that is not true or false', async () => {
     const db = testDb();
     const app = testApp(db);
     const { cookie } = await loginAs(app, db, 'van');
@@ -509,10 +533,11 @@ describe('PUT /settings/features', () => {
       method: 'PUT',
       url: '/api/settings/features',
       headers: { cookie },
-      payload: { food: true, exercise: true, sleep: true, weight: true },
+      payload: { macros: 'yes' },
     });
 
     expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe('macros must be true or false');
     await app.close();
   });
 

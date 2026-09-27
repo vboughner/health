@@ -92,10 +92,13 @@ export function registerSettingsRoutes(app: FastifyInstance, opts: AppOptions): 
     async (request, reply) => {
       const body = request.body ?? {};
 
-      // Built key by key from FEATURE_KEYS rather than taken wholesale, so a body
-      // missing one is a 400 and an unrecognised one simply never arrives.
-      const features = {} as Features;
+      // Built key by key from FEATURE_KEYS rather than taken wholesale, so an
+      // unrecognised key simply never arrives. A key the body leaves out keeps what is
+      // stored: a phone still running a cached older shell knows fewer toggles, and
+      // would otherwise switch every newer one off each time it saved.
+      const features: Features = { ...request.user!.features };
       for (const key of FEATURE_KEYS) {
+        if (!(key in body)) continue;
         if (typeof body[key] !== 'boolean') {
           return reply.code(400).send({ error: `${key} must be true or false` });
         }
