@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { weeklyTrend, movingAverage, currentStreak, complianceRate } from '../domain/trend';
+import {
+  weeklyTrend,
+  movingAverage,
+  currentStreak,
+  complianceRate,
+  mondayOf,
+  weeklySessions,
+} from '../domain/trend';
+import { dayRange } from '../domain/day';
 
 describe('weeklyTrend', () => {
   it('reports a steady half-pound-a-week loss as -0.5', () => {
@@ -183,5 +191,77 @@ describe('complianceRate', () => {
 
   it('rounds to a whole percent', () => {
     expect(complianceRate(3, 1)).toBe(33);
+  });
+});
+
+describe('mondayOf', () => {
+  it('finds the Monday of the week, Monday itself included', () => {
+    expect(mondayOf('2026-09-21')).toBe('2026-09-21'); // Monday
+    expect(mondayOf('2026-09-27')).toBe('2026-09-21'); // Sunday
+    expect(mondayOf('2026-09-24')).toBe('2026-09-21'); // Thursday
+  });
+
+  it('crosses a month and a year', () => {
+    expect(mondayOf('2026-10-01')).toBe('2026-09-28');
+    expect(mondayOf('2027-01-01')).toBe('2026-12-28');
+  });
+});
+
+describe('weeklySessions', () => {
+  // Mon 2026-09-07 .. Sun 2026-09-27: three whole weeks, today the final Sunday.
+  const range = dayRange('2026-09-27', 21);
+  const two = () => 2;
+
+  it('counts one session per day, however many entries it had', () => {
+    const weeks = weeklySessions(range, new Set(['2026-09-08', '2026-09-10']), two, '2026-09-27');
+    expect(weeks[0]).toEqual({ week_start: '2026-09-07', count: 2, target: 2, state: 'met' });
+  });
+
+  it('calls a finished week under target missed', () => {
+    const weeks = weeklySessions(range, new Set(['2026-09-15']), two, '2026-09-27');
+    expect(weeks[1]).toEqual({ week_start: '2026-09-14', count: 1, target: 2, state: 'missed' });
+  });
+
+  it('never calls the current week missed', () => {
+    const weeks = weeklySessions(range, new Set(['2026-09-22']), two, '2026-09-24');
+    expect(weeks[2].state).toBe('in_progress');
+  });
+
+  it('calls the current week met as soon as it is', () => {
+    const weeks = weeklySessions(range, new Set(['2026-09-22', '2026-09-23']), two, '2026-09-24');
+    expect(weeks[2].state).toBe('met');
+  });
+
+  it('marks a week the range starts partway through as partial, counting only its days', () => {
+    const midweek = dayRange('2026-09-27', 18); // starts Thu 2026-09-10
+    const weeks = weeklySessions(midweek, new Set(['2026-09-08', '2026-09-11']), two, '2026-09-27');
+    expect(weeks[0]).toEqual({ week_start: '2026-09-07', count: 1, target: 2, state: 'partial' });
+    expect(weeks).toHaveLength(3);
+  });
+
+  it('judges each week by the target in force on its Monday', () => {
+    const targetFor = (day: string) => (day >= '2026-09-21' ? 3 : 1);
+    const days = new Set(['2026-09-08', '2026-09-22', '2026-09-23']);
+    const weeks = weeklySessions(range, days, targetFor, '2026-09-27');
+    expect(weeks.map((w) => [w.target, w.state])).toEqual([
+      [1, 'met'],
+      [1, 'missed'],
+      [3, 'in_progress'],
+    ]);
+  });
+
+  it('meets a zero target by doing nothing', () => {
+    const weeks = weeklySessions(range, new Set(), () => 0, '2026-09-27');
+    expect(weeks.every((w) => w.state === 'met')).toBe(true);
+  });
+
+  it('shows the count with no verdict where there is no target', () => {
+    const weeks = weeklySessions(range, new Set(['2026-09-08']), () => null, '2026-09-27');
+    expect(weeks[0]).toEqual({
+      week_start: '2026-09-07',
+      count: 1,
+      target: null,
+      state: 'no_target',
+    });
   });
 });

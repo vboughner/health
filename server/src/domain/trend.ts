@@ -6,6 +6,8 @@
  * any individual reading, and that is what these functions produce.
  */
 
+import { addDays } from './day';
+
 export interface Point {
   day: string;
   value: number;
@@ -89,4 +91,54 @@ function dayNumber(day: string): number {
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+/** The Monday starting the Mon–Sun week a day falls in. */
+export function mondayOf(day: string): string {
+  // Noon UTC, so no timezone can move the calendar day under getUTCDay.
+  const weekday = new Date(`${day}T12:00:00Z`).getUTCDay(); // 0 = Sunday
+  return addDays(day, -((weekday + 6) % 7));
+}
+
+export type WeekState = 'met' | 'missed' | 'in_progress' | 'partial' | 'no_target';
+
+export interface WeekSessions {
+  /** The Monday. Can fall before the range when the range starts midweek. */
+  week_start: string;
+  /** Days in range with a session. A day is one session however many entries it had. */
+  count: number;
+  target: number | null;
+  state: WeekState;
+}
+
+/**
+ * Sessions per Mon–Sun week over a range, each judged by the target in force on its
+ * Monday.
+ *
+ * The current week is never a miss — there are days left in it. Nor is a week the
+ * range starts partway through: its count covers only the days in view, so judging it
+ * would call a met week missed for having been cut off by the chart.
+ */
+export function weeklySessions(
+  range: string[],
+  sessionDays: Set<string>,
+  targetFor: (day: string) => number | null,
+  today: string,
+): WeekSessions[] {
+  const weeks = new Map<string, number>();
+  for (const day of range) {
+    const monday = mondayOf(day);
+    weeks.set(monday, (weeks.get(monday) ?? 0) + (sessionDays.has(day) ? 1 : 0));
+  }
+
+  return [...weeks].map(([week_start, count]) => {
+    const target = targetFor(week_start);
+    let state: WeekState;
+    if (target === null) state = 'no_target';
+    else if (count >= target) state = 'met';
+    else if (addDays(week_start, 6) >= today) state = 'in_progress';
+    else if (week_start < range[0]) state = 'partial';
+    else state = 'missed';
+    return { week_start, count, target, state };
+  });
 }
