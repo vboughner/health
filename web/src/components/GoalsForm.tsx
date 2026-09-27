@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Goals } from '../types';
-import type { Settings } from '../settings';
+import { isOn, type Settings } from '../settings';
 
 type Scope = 'from_today' | 'correction';
 
@@ -9,8 +9,12 @@ function row(tracked: boolean): string {
   return tracked ? 'field-row' : 'field-row field-row-untracked';
 }
 
+/** An empty box is no target; anything else is sent as typed and judged by the server. */
+const toNullable = (s: string): number | null => (s.trim() === '' ? null : Number(s));
+const fromNullable = (n: number | null): string => (n === null ? '' : String(n));
+
 /**
- * The three numbers the day is measured against.
+ * The numbers the day is measured against.
  *
  * Saving asks how far back the change reaches, because the app cannot tell a typo
  * from a schedule change and the two want opposite things: fixing 2400 typed as 240
@@ -26,6 +30,9 @@ function row(tracked: boolean): string {
  * eating window from the log either way, so the figure still means something and turning
  * the feature back on brings its whole history with it. Dimming says the one true thing:
  * this is not being shown on the day at the moment.
+ *
+ * An empty protein or weights box is not a typo — it is how either target is turned
+ * off, and is sent and stored as null.
  */
 export function GoalsForm({
   goals,
@@ -41,6 +48,9 @@ export function GoalsForm({
   const [burn, setBurn] = useState(String(goals.burn_target));
   const [start, setStart] = useState(goals.window_start);
   const [end, setEnd] = useState(goals.window_end);
+  const [pMin, setPMin] = useState(fromNullable(goals.protein_min_g));
+  const [pMax, setPMax] = useState(fromNullable(goals.protein_max_g));
+  const [weights, setWeights] = useState(fromNullable(goals.weights_per_week));
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -50,19 +60,28 @@ export function GoalsForm({
     burn_target: Number(burn),
     window_start: start,
     window_end: end,
+    protein_min_g: toNullable(pMin),
+    protein_max_g: toNullable(pMax),
+    weights_per_week: toNullable(weights),
   };
 
   const changed =
     edited.kcal_budget !== goals.kcal_budget ||
     edited.burn_target !== goals.burn_target ||
     edited.window_start !== goals.window_start ||
-    edited.window_end !== goals.window_end;
+    edited.window_end !== goals.window_end ||
+    edited.protein_min_g !== goals.protein_min_g ||
+    edited.protein_max_g !== goals.protein_max_g ||
+    edited.weights_per_week !== goals.weights_per_week;
 
   function reset() {
     setBudget(String(goals.kcal_budget));
     setBurn(String(goals.burn_target));
     setStart(goals.window_start);
     setEnd(goals.window_end);
+    setPMin(fromNullable(goals.protein_min_g));
+    setPMax(fromNullable(goals.protein_max_g));
+    setWeights(fromNullable(goals.weights_per_week));
     setAsking(false);
     setError('');
   }
@@ -127,6 +146,44 @@ export function GoalsForm({
               onChange={(e) => setBurn(e.target.value)}
             />
             <span className="field-unit">cal</span>
+          </span>
+        </label>
+
+        <div className={`${row(isOn(tracked, 'protein'))} field-row-stack`}>
+          <span className="field-label">Protein</span>
+          <span className="field-input">
+            <input
+              type="number"
+              inputMode="numeric"
+              value={pMin}
+              placeholder="—"
+              aria-label="Protein minimum"
+              onChange={(e) => setPMin(e.target.value)}
+            />
+            <span className="field-unit">to</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              value={pMax}
+              placeholder="—"
+              aria-label="Protein maximum"
+              onChange={(e) => setPMax(e.target.value)}
+            />
+            <span className="field-unit">g</span>
+          </span>
+        </div>
+
+        <label className={row(tracked.exercise)}>
+          <span className="field-label">Weights</span>
+          <span className="field-input">
+            <input
+              type="number"
+              inputMode="numeric"
+              value={weights}
+              placeholder="—"
+              onChange={(e) => setWeights(e.target.value)}
+            />
+            <span className="field-unit">a week</span>
           </span>
         </label>
       </div>
