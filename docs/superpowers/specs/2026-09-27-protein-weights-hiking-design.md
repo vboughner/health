@@ -53,7 +53,9 @@ Both default on, so nothing disappears for an account on deploy.
   with a zero target (a rest week) is met by doing nothing, never missed.
 
 `PUT /settings/goals` stores the three new fields alongside the old four, field by
-field as it does now. `goalsForDay`, the scope rule, and `putGoalPeriod` are otherwise
+field as it does now. **A field absent from the body keeps the value of the period
+covering today** — present-but-null clears it. A phone still running the cached
+four-field form would otherwise erase both targets the first time it saved a budget. `goalsForDay`, the scope rule, and `putGoalPeriod` are otherwise
 unchanged.
 
 ## Feature toggles: nested
@@ -142,8 +144,9 @@ target. Hidden when macros or protein is effectively off.
   once.
 - A week's target is the `weights_per_week` of the period covering its **Monday**;
   a week with a null target shows its count uncoloured.
-- Met → `2 ✓`. The current week, not yet met, reads as in progress (`1…`), never as a
-  miss. Past weeks under target read as a miss in the usual non-warn styling.
+- Met → `2 ✓` on the accent green. The current week, not yet met, reads as in
+  progress (`1…`), never as a miss. A past week under target is a plain neutral cell
+  with its count — not amber, which is reserved for warnings and window violations.
 - The first week is partial when the range starts mid-week; its count covers only the
   days in range, and it is marked partial rather than judged.
 
