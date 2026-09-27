@@ -6,6 +6,11 @@ export interface Goals {
   burn_target: number;
   window_start: string;
   window_end: string;
+  /** Grams a day. Both null is no target. */
+  protein_min_g: number | null;
+  protein_max_g: number | null;
+  /** Days with a weights session per Mon–Sun week. Null is no target. */
+  weights_per_week: number | null;
 }
 
 export interface User {

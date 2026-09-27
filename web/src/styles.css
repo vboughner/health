@@ -1703,6 +1703,26 @@ textarea:focus {
   line-height: 1.45;
 }
 
+/* Sub-toggles sit under their parent, indented, with no rule between them and it —
+   they are part of the parent's row group, not peers. */
+.toggle-depth-1 {
+  padding-left: 18px;
+}
+
+.toggle-depth-2 {
+  padding-left: 36px;
+}
+
+.toggle.toggle-depth-1,
+.toggle.toggle-depth-2 {
+  border-top: none;
+}
+
+/* Parent off: the child still shows where it will be when the parent returns. */
+.toggle-inert {
+  opacity: 0.45;
+}
+
 /* ---------- sleep ---------- */
 
 .sleep {

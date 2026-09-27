@@ -1,4 +1,4 @@
-import { FEATURES, type Settings as SettingsValue } from '../settings';
+import { FEATURES, isOn, depth, type Settings as SettingsValue } from '../settings';
 import { GoalsForm } from '../components/GoalsForm';
 import type { Goals } from '../types';
 
@@ -36,23 +36,39 @@ export function Settings({
       <div className="card">
         <div className="card-title card-title-tight">Track</div>
         <div className="toggles">
-          {FEATURES.map((f) => (
-            <label className="toggle" key={f.key}>
-              <span className="toggle-text">
-                <span className="toggle-label">{f.label}</span>
-                <span className="toggle-detail">{f.detail}</span>
-              </span>
-              <input
-                type="checkbox"
-                className="toggle-input"
-                checked={settings[f.key]}
-                onChange={(e) => onChange({ ...settings, [f.key]: e.target.checked })}
-              />
-              <span className="toggle-track" aria-hidden="true">
-                <span className="toggle-knob" />
-              </span>
-            </label>
-          ))}
+          {FEATURES.map((f) => {
+            // A child whose parent is off keeps showing its own stored position, dimmed
+            // and inert: it will be exactly that again when the parent comes back.
+            const inert = f.parent !== undefined && !isOn(settings, f.parent);
+            const detail =
+              f.key === 'protein'
+                ? goals.protein_min_g !== null
+                  ? `${goals.protein_min_g}–${goals.protein_max_g} g a day.`
+                  : 'No range set — add one under Goals below.'
+                : f.detail;
+
+            return (
+              <label
+                className={`toggle toggle-depth-${depth(f.key)}${inert ? ' toggle-inert' : ''}`}
+                key={f.key}
+              >
+                <span className="toggle-text">
+                  <span className="toggle-label">{f.label}</span>
+                  <span className="toggle-detail">{detail}</span>
+                </span>
+                <input
+                  type="checkbox"
+                  className="toggle-input"
+                  checked={settings[f.key]}
+                  disabled={inert}
+                  onChange={(e) => onChange({ ...settings, [f.key]: e.target.checked })}
+                />
+                <span className="toggle-track" aria-hidden="true">
+                  <span className="toggle-knob" />
+                </span>
+              </label>
+            );
+          })}
         </div>
         {error && <div className="error">{error}</div>}
         <div className="tiny faint toggle-note">
