@@ -42,10 +42,11 @@ Two packages, mirroring the `server/` + `client/` split in the griljor repo.
   - `src/domain/` — **pure functions, no I/O**: `nutrition` (serving→calorie math, macro
     percentages), `exercise` (MET estimate), `processed` (refined-food classifier),
     `day` (local-day boundaries, eating window, sleep hours), `trend` (weight slope,
-    moving average, streaks), `recording` (mime allowlist, size and length caps,
-    filenames). All the interesting arithmetic lives here and is tested without a
-    server or database. Keep it that way — routes stay thin: parse, call domain,
-    persist, return.
+    moving average, streaks, and `weeklySessions` — bucketing a day-level set of
+    sessions into Mon–Sun weeks and judging each against the target on its Monday),
+    `recording` (mime allowlist, size and length caps, filenames). All the interesting
+    arithmetic lives here and is tested without a server or database. Keep it that
+    way — routes stay thin: parse, call domain, persist, return.
   - `src/routes/` — one file per resource group, all under `/api`: `auth`, `foods`,
     `log`, `day`, `summary`, `trends`.
   - `src/store.ts` — **all SQL**. Every query filters on `user_id`.
@@ -74,17 +75,24 @@ Two packages, mirroring the `server/` + `client/` split in the griljor repo.
   - `src/dates.ts` — client-side day arithmetic. Mirrors parts of the server's
     `domain/day.ts` on purpose: the two packages must not import each other.
   - `src/settings.ts` — which features this account tracks (diet, exercise, sleep,
-    weight, goals). **Per-account, on the server** — five `track_*` columns on `users`,
-    arriving with the user from `/auth/me`. This was per-device in `localStorage`, and
-    the reasoning for that was written down and argued for; it was deliberately reversed
-    in migration 006, because one account should mean one set of settings on every
-    device you sign into. The toggles already on a phone were **not** adopted — the
-    server's defaults won once, and `clearLegacySettings()` deletes the old key on boot.
-    Nothing is deleted or stops being recorded when a feature goes off; it only decides
-    what `Today` and `Trends` draw, so turning one back on brings its whole history with
-    it. `nothingTracked()` still asks `FEATURES` rather than a list of its own, so a
-    toggle added later is counted without anyone remembering to — and `domain/features.ts`
-    gives the server the same property for validating and storing them.
+    weight, goals, macros, protein — seven now). **Per-account, on the server** —
+    seven `track_*` columns on `users`, arriving with the user from `/auth/me`. This
+    was per-device in `localStorage`, and the reasoning for that was written down and
+    argued for; it was deliberately reversed in migration 006, because one account
+    should mean one set of settings on every device you sign into. The toggles already
+    on a phone were **not** adopted — the server's defaults won once, and
+    `clearLegacySettings()` deletes the old key on boot. Nothing is deleted or stops
+    being recorded when a feature goes off; it only decides what `Today` and `Trends`
+    draw, so turning one back on brings its whole history with it. `macros` and
+    `protein` are drawn nested — Diet → Macros → Protein target — but stored as flat
+    booleans; the server knows nothing of the nesting, and every screen asks `isOn()`
+    rather than the raw flag, so a toggle whose parent is off is respected without a
+    special case at each call site. `nothingTracked()` still asks `FEATURES` filtered to
+    top-level keys, so a toggle added later is counted without anyone remembering to —
+    and `domain/features.ts` gives the server the same property for validating and
+    storing them. `PUT /settings/features` is partial: a key the body leaves out keeps
+    its stored value, so a phone running a cached older shell that has never heard of
+    `protein` cannot switch it off just by saving the toggles it does know about.
   - `src/components/charts.tsx` — hand-rolled inline SVG, no chart library. Bars are
     zero-based on purpose; a truncated baseline makes a 1200-calorie day look like a
     fraction of a 2000-calorie one.
@@ -135,6 +143,16 @@ still resolves), and Save offers *from today onward* against *fix a mistake*. A
 correction rewrites the period covering **today**, not all of them, so fixing an October
 typo cannot undo a September change. Once you have edited today the two are the same row
 and do the same thing.
+
+**A protein range and a weekly weights target are goals too, effective-dated the same
+way.** `protein_min_g`, `protein_max_g` and `weights_per_week` (migration 009) live on
+`goal_periods` alongside the budget, for the same reason — a range adopted in September
+should not reach back and judge August. Null means no target rather than zero, so every
+existing period was left null on the migration rather than backfilled with the new
+numbers. Unlike the four original fields, which the web form always sends in full,
+`PUT /settings/goals` keeps whichever of these three the body leaves out and only clears
+one sent explicitly as null — a phone still on the cached four-field form would
+otherwise erase both targets the first time it saved a plain budget change.
 
 **Settings need the network and nothing is queued.** A toggle moves at once and goes
 back if the write fails; the goal form and the plan editor keep your edits on screen.
@@ -223,6 +241,14 @@ violations. The macro palette runs carb=green, protein=yellow, fat=red as a traf
 light matching the 80/10/10 target. The protein yellow and the warn amber are close;
 they never appear in the same component, but check that if you add one.
 
+**The protein bar is neither of those colours.** `components/ProteinBar.tsx` fills in
+`--accent`, the same green as a day under budget, because it answers a different
+question — hit the range or not — and amber would misread as a warning for a macro this
+plan wants *more* of, while the protein yellow would misread it as the carb/protein/fat
+split one card up. Past the maximum it stays that same green and keeps filling: getting
+enough is the only thing this bar tracks, so there is nothing to warn about on the way
+past it.
+
 **Chart colours were chosen with a CVD validator, not by eye.** Green/yellow/red is the
 hardest triple for red-green colourblindness. The dark-mode yellow deliberately sits
 above the house lightness band — darkening it into the band collapses green/yellow
@@ -261,7 +287,7 @@ silently. On the Mac, `localhost:5174` counts as secure and can be used to test 
 - Prettier: 2-space, single quotes, semicolons, 100 columns. Run `npm run format`.
 - Tests required for bug fixes (a regression test that fails before, passes after) and
   for new domain functions. Route changes get an integration test via Fastify
-  `app.inject()` against an in-memory database. 420 server + 121 web tests.
+  `app.inject()` against an in-memory database. 460 server + 140 web tests.
 - **Both packages type-check their tests**, and each `npm test` runs `tsc` before
   vitest, so a test that does not compile fails the suite rather than passing quietly.
   The two do it differently because their build configs differ:

@@ -153,12 +153,12 @@ const TREAT: NewFood & { grams: number; hour: number } = {
 };
 
 const WORKOUTS: Record<number, { activity: ActivityId; minutes: number }> = {
-  1: { activity: 'running', minutes: 45 },
+  1: { activity: 'weights', minutes: 45 },
   2: { activity: 'climbing', minutes: 90 },
-  3: { activity: 'running', minutes: 35 },
+  3: { activity: 'hiking', minutes: 120 },
   4: { activity: 'weights', minutes: 50 },
   5: { activity: 'climbing', minutes: 90 },
-  6: { activity: 'running', minutes: 60 },
+  6: { activity: 'running', minutes: 40 },
 };
 
 /** Deterministic pseudo-random, so re-seeding gives the same picture. */
