@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { stepPath } from '../components/charts';
+import { stepPath, weekCellText } from '../components/charts';
 
 /** A geometry stub: x is the index times ten, y is the value negated. */
 const geom = {
@@ -57,5 +57,21 @@ describe('stepPath', () => {
     const d = stepPath([{ budget: 2400 }, { budget: 2400 }], geom, 5, 95);
     expect(d.startsWith('M 5 ')).toBe(true);
     expect(d.trimEnd().endsWith('95 -2400')).toBe(true);
+  });
+});
+
+describe('weekCellText', () => {
+  it('ticks a met week', () => {
+    expect(weekCellText({ count: 2, state: 'met' })).toBe('2 ✓');
+  });
+
+  it('marks the current week as still going, never as a miss', () => {
+    expect(weekCellText({ count: 1, state: 'in_progress' })).toBe('1…');
+  });
+
+  it('shows a bare count otherwise', () => {
+    expect(weekCellText({ count: 1, state: 'missed' })).toBe('1');
+    expect(weekCellText({ count: 0, state: 'partial' })).toBe('0');
+    expect(weekCellText({ count: 3, state: 'no_target' })).toBe('3');
   });
 });

@@ -26,6 +26,13 @@
   --protein: #ffd24a;
   --fat: #dc4a4a;
 
+  /* Ink for text set directly on a solid --accent fill (the weekly strip's "met"
+     cell). Not a fixed color: dark mode's accent is bright enough that the dark
+     --bg ink reads on it, but light mode's accent is darker and needs light
+     mode's own dark --text ink instead — re-stepped per theme like every other
+     color here, just aliasing rather than defining anew. */
+  --ink-on-accent: var(--bg);
+
   --radius: 14px;
   --pad: 16px;
 
@@ -54,6 +61,10 @@
     --carb: #15803d;
     --protein: #ca8a04;
     --fat: #c81e1e;
+
+    /* Light mode's accent is dark enough that dark --bg ink (near-white here)
+       fails on it — light mode's own dark --text ink is what reads. */
+    --ink-on-accent: var(--text);
 
     color-scheme: light;
   }
@@ -1440,6 +1451,70 @@ textarea:focus {
   height: 9px;
   border-radius: 2px;
   flex-shrink: 0;
+}
+
+/* The missed swatch is the same --surface-2 as an unmet cell, which disappears
+   against the card without an edge — same fix as .strip-none above. */
+.strip-swatch.week-missed {
+  border: 1px solid var(--border);
+}
+
+/* ---------- weekly strip ---------- */
+
+.week-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+  background: var(--surface-2);
+}
+
+/* CVD validator (dataviz skill, OKLab ΔE×100, worst of protan/deutan), text
+   contrast WCAG:
+     --ink-on-accent vs --accent   dark 10.78:1, light 5.41:1 (both clear the 4.5:1
+                                    AA floor for the cell's 12px count)
+   A flat var(--bg) as that ink — the dark-mode value that works — fails in light
+   mode (3.07:1, below AA): light mode's --bg is a near-white page background, not
+   a dark ink, so on light mode's darker accent it barely clears large-text
+   contrast and misses normal text. --ink-on-accent re-steps per theme instead
+   (see :root), aliasing whichever of --bg / --text is the dark ink that theme
+   actually has. */
+.week-met {
+  background: var(--accent);
+  color: var(--ink-on-accent);
+}
+
+.week-in_progress {
+  border: 1px dashed var(--border);
+}
+
+.week-partial,
+.week-no_target {
+  color: var(--text-faint);
+}
+
+/* CVD validator (dataviz skill, OKLab ΔE×100, worst of protan/deutan), against the
+   chart's own background --surface (the SVG has no background of its own, so it
+   sits on the card behind it, not --surface-2):
+     --accent-dim vs --surface        dark 25.1 (passes), light 6.8 (WARN band, and
+                                       the 15-floor normal-vision check fails at 11.0)
+   Light mode fails the same way .protein-band did. There this was fixed with the
+   .win-target treatment — a wash plus a dashed border — but that treatment draws
+   one continuous horizontal track with only two meaningful edges (the range's
+   start and end). Here one band is drawn per day, because the range can start
+   partway through the chart (days before it have no band at all), and a dashed
+   stroke on all four sides of adjacent same-height rects reads as a fence of
+   vertical bars rather than one band, everywhere the range holds steady from one
+   day to the next — which is most days. So this raises the wash's own strength
+   instead of leaning on a border to do the separating:
+     16% wash (the brief's opacity) vs --surface   light 4.7 (fails, as above)
+     40% wash                       vs --surface   dark 25.4, light 14.5 (both
+                                     clear the CVD floor; light's normal-vision
+                                     ΔE is 17.7, clear of the 15 floor too) */
+.chart-band {
+  fill: color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 /* ---------- stat tiles ---------- */

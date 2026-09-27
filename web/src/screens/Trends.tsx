@@ -1,12 +1,22 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api';
-import { nothingTracked, type Settings } from '../settings';
-import { WeightChart, CalorieChart, ComplianceStrip } from '../components/charts';
+import { isOn, nothingTracked, type Settings } from '../settings';
+import {
+  WeightChart,
+  CalorieChart,
+  ComplianceStrip,
+  ProteinChart,
+  WeeksStrip,
+  type WeekState,
+} from '../components/charts';
 import { NothingTracked } from '../components/NothingTracked';
 
 interface TrendDay {
   day: string;
   kcal: number | null;
+  protein_g: number | null;
+  protein_min_g: number | null;
+  protein_max_g: number | null;
   burned: number | null;
   weight_lb: number | null;
   sleep_hours: number | null;
@@ -24,11 +34,16 @@ interface Trends {
   days: TrendDay[];
   budget: number;
   burn_target: number;
+  weights_per_week: number | null;
+  weights_weeks: { week_start: string; count: number; target: number | null; state: WeekState }[];
   summary: {
     weight_trend_per_week: number | null;
     weight_smoothed: { day: string; value: number }[];
     latest_weight: number | null;
     avg_kcal: number | null;
+    avg_protein_g: number | null;
+    protein_days_with_target: number;
+    protein_days_in_range: number;
     avg_burned: number | null;
     avg_sleep_hours: number | null;
     days_logged: number;
@@ -187,10 +202,44 @@ export function Trends({
         </div>
       )}
 
+      {isOn(settings, 'protein') && (
+        <div className="card">
+          <div className="card-title">
+            Protein
+            {s.avg_protein_g !== null && <span className="faint"> · avg {s.avg_protein_g} g</span>}
+          </div>
+          <ProteinChart
+            points={data.days.map((d) => ({
+              day: d.day,
+              value: d.protein_g,
+              min: d.protein_min_g,
+              max: d.protein_max_g,
+            }))}
+          />
+          <div className="tiny faint">
+            {s.protein_days_with_target > 0
+              ? `${s.protein_days_in_range} of ${s.protein_days_with_target} logged days in range.`
+              : 'No protein range set for these days — add one on Settings.'}
+          </div>
+        </div>
+      )}
+
       {settings.food && (
         <div className="card">
           <div className="card-title">Eating window</div>
           <ComplianceStrip days={data.days.map((d) => ({ day: d.day, ok: d.window_compliant }))} />
+        </div>
+      )}
+
+      {settings.exercise && (
+        <div className="card">
+          <div className="card-title">
+            Weights
+            {data.weights_per_week !== null && (
+              <span className="faint"> · {data.weights_per_week} a week</span>
+            )}
+          </div>
+          <WeeksStrip weeks={data.weights_weeks} />
         </div>
       )}
 

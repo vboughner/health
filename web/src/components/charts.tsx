@@ -251,6 +251,120 @@ export function CalorieChart({ points }: { points: (Series & { budget: number })
 }
 
 /**
+ * Daily protein as zero-based bars over the band each day was aiming at. The band
+ * rides on each point, like the calorie budget, because a range can start partway
+ * through the chart — days before it draw bars with nothing behind them.
+ */
+export function ProteinChart({
+  points,
+}: {
+  points: (Series & { min: number | null; max: number | null })[];
+}) {
+  if (points.every((p) => p.value === null)) {
+    return <div className="empty tiny">Nothing logged in this range yet.</div>;
+  }
+
+  const ends = points.flatMap((p) => (p.max === null ? [] : [p.max]));
+
+  return (
+    <ChartFrame
+      points={points}
+      scale={{ fromZero: true, include: ends }}
+      tooltip={(i) => (
+        <>
+          <div className="chart-tip-day">{longDay(points[i].day)}</div>
+          <div className="chart-tip-value">
+            {points[i].value === null ? 'nothing logged' : `${points[i].value} g`}
+            {points[i].min !== null && (
+              <span className="faint">
+                {' '}
+                · {points[i].min}–{points[i].max}
+              </span>
+            )}
+          </div>
+        </>
+      )}
+    >
+      {(geom) => {
+        const half = points.length > 1 ? (geom.x(1) - geom.x(0)) / 2 : geom.barWidth;
+        return (
+          <>
+            {points.map((p, i) =>
+              p.min === null || p.max === null ? null : (
+                <rect
+                  key={`band-${p.day}`}
+                  x={geom.x(i) - half}
+                  y={geom.y(p.max)}
+                  width={half * 2}
+                  height={geom.y(p.min) - geom.y(p.max)}
+                  className="chart-band"
+                />
+              ),
+            )}
+            {points.map((p, i) => {
+              if (p.value === null) return null;
+              const top = geom.y(p.value);
+              return (
+                <rect
+                  key={p.day}
+                  x={geom.x(i) - geom.barWidth / 2}
+                  y={top}
+                  width={geom.barWidth}
+                  height={Math.max(2, geom.baseline - top)}
+                  rx={Math.min(4, geom.barWidth / 2)}
+                  className="chart-bar"
+                />
+              );
+            })}
+          </>
+        );
+      }}
+    </ChartFrame>
+  );
+}
+
+export type WeekState = 'met' | 'missed' | 'in_progress' | 'partial' | 'no_target';
+
+export function weekCellText(w: { count: number; state: WeekState }): string {
+  if (w.state === 'met') return `${w.count} ✓`;
+  if (w.state === 'in_progress') return `${w.count}…`;
+  return String(w.count);
+}
+
+/**
+ * One cell per Mon–Sun week, with its count. A week under target is a plain cell,
+ * not amber: amber is for warnings and window violations, and the number already
+ * says how far short it came.
+ */
+export function WeeksStrip({
+  weeks,
+}: {
+  weeks: { week_start: string; count: number; target: number | null; state: WeekState }[];
+}) {
+  const hasProgress = weeks.some((w) => w.state === 'in_progress');
+  return (
+    <div className="strip-wrap">
+      <div className="strip">
+        {weeks.map((w) => (
+          <div
+            key={w.week_start}
+            className={`strip-cell week-cell week-${w.state}`}
+            title={`Week of ${longDay(w.week_start)} — ${w.count} of ${w.target ?? 'no target'}`}
+          >
+            {weekCellText(w)}
+          </div>
+        ))}
+      </div>
+      <div className="strip-legend">
+        <LegendItem cls="week-met" label="Met" />
+        <LegendItem cls="week-missed" label="Short" />
+        {hasProgress && <LegendItem cls="week-in_progress" label="This week" />}
+      </div>
+    </div>
+  );
+}
+
+/**
  * One cell per day: inside the window, outside it, or nothing logged.
  * Legend included — state must never be carried by color alone.
  */
