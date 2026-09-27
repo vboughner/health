@@ -252,10 +252,11 @@ past it.
 **A session on the weekly weights strip is a day, not a log.** `weeklySessions`
 (`domain/trend.ts`) counts days with at least one weights entry, so two workouts
 logged the same day still count once. Each week is judged by the target in force on
-its **Monday** (`goalsForDay` at `week_start`), and three weeks are left unjudged
-rather than scored: the current week, because there are still days left in it to log;
-a week the range starts partway through, because its count only covers the days the
-chart can see and would otherwise read as missed for having been cut off; and a week
+its **Monday** (`goalsForDay` at `week_start`), and three kinds of week are never
+called missed: the current week, which can already be met but still has days left in
+it to log; a week the range starts partway through, because its count only covers the
+days the chart can see and would otherwise read as missed for having been cut off; and
+a week
 with nothing recorded at all, `no_record`, the same refusal `hasRecord` makes per day
 in `routes/trends.ts` for `goals_reviewed` — a stretch that predates the account or
 went untouched is not a miss. `no_record` outranks every other state, including
