@@ -6,7 +6,8 @@ A personal food, exercise, sleep and weight tracker. Phone-first PWA, one user, 
 around a specific plan rather than around being general — there is no onboarding, no
 signup page, and no settings for things that are simply decided.
 
-**Not yet deployed.** It runs locally, and on a phone over the same wifi.
+**Live at [health.hovercloud.com](https://health.hovercloud.com)** since 2026-08-16. It
+also runs locally, and on a phone over the same wifi.
 
 ## What it does
 
