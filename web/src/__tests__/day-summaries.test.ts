@@ -5,7 +5,15 @@ import type { Settings } from '../settings';
 const TZ = 'America/Los_Angeles';
 const at = (hhmm: string) => Date.parse(`2026-01-15T${hhmm}:00-08:00`);
 
-const all: Settings = { food: true, exercise: true, sleep: true, weight: true, goals: true };
+const all: Settings = {
+  food: true,
+  exercise: true,
+  sleep: true,
+  weight: true,
+  goals: true,
+  macros: true,
+  protein: true,
+};
 
 const blankDay = {
   weight_lb: null,
