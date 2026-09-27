@@ -213,28 +213,46 @@ describe('weeklySessions', () => {
   const two = () => 2;
 
   it('counts one session per day, however many entries it had', () => {
-    const weeks = weeklySessions(range, new Set(['2026-09-08', '2026-09-10']), two, '2026-09-27');
+    const weeks = weeklySessions(
+      range,
+      new Set(['2026-09-08', '2026-09-10']),
+      new Set(range),
+      two,
+      '2026-09-27',
+    );
     expect(weeks[0]).toEqual({ week_start: '2026-09-07', count: 2, target: 2, state: 'met' });
   });
 
   it('calls a finished week under target missed', () => {
-    const weeks = weeklySessions(range, new Set(['2026-09-15']), two, '2026-09-27');
+    const weeks = weeklySessions(range, new Set(['2026-09-15']), new Set(range), two, '2026-09-27');
     expect(weeks[1]).toEqual({ week_start: '2026-09-14', count: 1, target: 2, state: 'missed' });
   });
 
   it('never calls the current week missed', () => {
-    const weeks = weeklySessions(range, new Set(['2026-09-22']), two, '2026-09-24');
+    const weeks = weeklySessions(range, new Set(['2026-09-22']), new Set(range), two, '2026-09-24');
     expect(weeks[2].state).toBe('in_progress');
   });
 
   it('calls the current week met as soon as it is', () => {
-    const weeks = weeklySessions(range, new Set(['2026-09-22', '2026-09-23']), two, '2026-09-24');
+    const weeks = weeklySessions(
+      range,
+      new Set(['2026-09-22', '2026-09-23']),
+      new Set(range),
+      two,
+      '2026-09-24',
+    );
     expect(weeks[2].state).toBe('met');
   });
 
   it('marks a week the range starts partway through as partial, counting only its days', () => {
     const midweek = dayRange('2026-09-27', 18); // starts Thu 2026-09-10
-    const weeks = weeklySessions(midweek, new Set(['2026-09-08', '2026-09-11']), two, '2026-09-27');
+    const weeks = weeklySessions(
+      midweek,
+      new Set(['2026-09-08', '2026-09-11']),
+      new Set(midweek),
+      two,
+      '2026-09-27',
+    );
     expect(weeks[0]).toEqual({ week_start: '2026-09-07', count: 1, target: 2, state: 'partial' });
     expect(weeks).toHaveLength(3);
   });
@@ -242,7 +260,7 @@ describe('weeklySessions', () => {
   it('judges each week by the target in force on its Monday', () => {
     const targetFor = (day: string) => (day >= '2026-09-21' ? 3 : 1);
     const days = new Set(['2026-09-08', '2026-09-22', '2026-09-23']);
-    const weeks = weeklySessions(range, days, targetFor, '2026-09-27');
+    const weeks = weeklySessions(range, days, new Set(range), targetFor, '2026-09-27');
     expect(weeks.map((w) => [w.target, w.state])).toEqual([
       [1, 'met'],
       [1, 'missed'],
@@ -251,17 +269,44 @@ describe('weeklySessions', () => {
   });
 
   it('meets a zero target by doing nothing', () => {
-    const weeks = weeklySessions(range, new Set(), () => 0, '2026-09-27');
+    const weeks = weeklySessions(range, new Set(), new Set(range), () => 0, '2026-09-27');
     expect(weeks.every((w) => w.state === 'met')).toBe(true);
   });
 
   it('shows the count with no verdict where there is no target', () => {
-    const weeks = weeklySessions(range, new Set(['2026-09-08']), () => null, '2026-09-27');
+    const weeks = weeklySessions(
+      range,
+      new Set(['2026-09-08']),
+      new Set(range),
+      () => null,
+      '2026-09-27',
+    );
     expect(weeks[0]).toEqual({
       week_start: '2026-09-07',
       count: 1,
       target: null,
       state: 'no_target',
     });
+  });
+
+  it('calls a finished week with a target and no recorded day not_recorded, not missed', () => {
+    const weeks = weeklySessions(range, new Set(), new Set(), two, '2026-09-27');
+    expect(weeks[1].state).toBe('no_record');
+  });
+
+  it('still calls a recorded week with no session missed', () => {
+    // Day 15 has a record (something logged) but no weights session.
+    const weeks = weeklySessions(range, new Set(), new Set(['2026-09-15']), two, '2026-09-27');
+    expect(weeks[1]).toEqual({ week_start: '2026-09-14', count: 0, target: 2, state: 'missed' });
+  });
+
+  it('calls the current week no_record when nothing has been logged yet, not in progress', () => {
+    const weeks = weeklySessions(range, new Set(), new Set(), two, '2026-09-24');
+    expect(weeks[2].state).toBe('no_record');
+  });
+
+  it('lets no_record win over no_target', () => {
+    const weeks = weeklySessions(range, new Set(), new Set(), () => null, '2026-09-27');
+    expect(weeks[1].state).toBe('no_record');
   });
 });

@@ -149,6 +149,10 @@ target. Hidden when macros or protein is effectively off.
   with its count — not amber, which is reserved for warnings and window violations.
 - The first week is partial when the range starts mid-week; its count covers only the
   days in range, and it is marked partial rather than judged.
+- A week with no recorded day at all — food logged, exercise logged, or a daily entry,
+  the same `hasRecord` test the route already applies per day — is `no_record`
+  regardless of its target, and shows no count. This outranks every other state,
+  including a null target.
 
 `domain/trend.ts` gains `weeklySessions(days: {day, weights: boolean}[], periods,
 today)` returning `{ week_start, count, target, state }[]`. `burnByDay` or a sibling

@@ -323,9 +323,10 @@ export function ProteinChart({
   );
 }
 
-export type WeekState = 'met' | 'missed' | 'in_progress' | 'partial' | 'no_target';
+export type WeekState = 'met' | 'missed' | 'in_progress' | 'partial' | 'no_target' | 'no_record';
 
 export function weekCellText(w: { count: number; state: WeekState }): string {
+  if (w.state === 'no_record') return '';
   if (w.state === 'met') return `${w.count} ✓`;
   if (w.state === 'in_progress') return `${w.count}…`;
   return String(w.count);
@@ -342,6 +343,7 @@ export function WeeksStrip({
   weeks: { week_start: string; count: number; target: number | null; state: WeekState }[];
 }) {
   const hasProgress = weeks.some((w) => w.state === 'in_progress');
+  const hasNoRecord = weeks.some((w) => w.state === 'no_record');
   return (
     <div className="strip-wrap">
       <div className="strip">
@@ -349,7 +351,11 @@ export function WeeksStrip({
           <div
             key={w.week_start}
             className={`strip-cell week-cell week-${w.state}`}
-            title={`Week of ${longDay(w.week_start)} — ${w.count} of ${w.target ?? 'no target'}`}
+            title={
+              w.state === 'no_record'
+                ? `Week of ${longDay(w.week_start)} — not logged`
+                : `Week of ${longDay(w.week_start)} — ${w.count} of ${w.target ?? 'no target'}`
+            }
           >
             {weekCellText(w)}
           </div>
@@ -359,6 +365,7 @@ export function WeeksStrip({
         <LegendItem cls="week-met" label="Met" />
         <LegendItem cls="week-missed" label="Short" />
         {hasProgress && <LegendItem cls="week-in_progress" label="This week" />}
+        {hasNoRecord && <LegendItem cls="week-no_record" label="Not logged" />}
       </div>
     </div>
   );

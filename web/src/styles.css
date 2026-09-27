@@ -1495,6 +1495,12 @@ textarea:focus {
   color: var(--text-faint);
 }
 
+/* Same look as .strip-none — a week that never happened in the app, not a miss. */
+.week-no_record {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
 /* CVD validator (dataviz skill, OKLab ΔE×100, worst of protan/deutan), against the
    chart's own background --surface (the SVG has no background of its own, so it
    sits on the card behind it, not --surface-2):

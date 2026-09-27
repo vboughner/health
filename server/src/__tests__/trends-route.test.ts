@@ -4,6 +4,7 @@ import { testDb, testApp, loginAs, fakeUsda, USDA_BANANA, type Payload, type Res
 import type { Db } from '../db';
 import { putGoalPeriod, type DailyEntryPatch } from '../store';
 import { localDay } from '../domain/day';
+import { mondayOf } from '../domain/trend';
 
 const TZ = 'America/Los_Angeles';
 
@@ -376,6 +377,46 @@ describe('GET /api/trends', () => {
     expect(res.json().summary.protein_days_with_target).toBe(1);
     expect(res.json().summary.protein_days_in_range).toBe(1);
     expect(res.json().summary.avg_protein_g).toBe(6);
+  });
+
+  it('leaves every week no_record when nothing at all has been logged', async () => {
+    putGoalPeriod(db, userId, {
+      effective_from: '2020-01-01',
+      kcal_budget: 2400,
+      burn_target: 960,
+      window_start: '09:00',
+      window_end: '19:00',
+      protein_min_g: null,
+      protein_max_g: null,
+      weights_per_week: 2,
+    });
+
+    const res = await get('/api/trends?days=28');
+
+    expect(res.json().weights_weeks.every((w: { state: string }) => w.state === 'no_record')).toBe(
+      true,
+    );
+  });
+
+  it('takes a week out of no_record once a day in it has any record', async () => {
+    putGoalPeriod(db, userId, {
+      effective_from: '2020-01-01',
+      kcal_budget: 2400,
+      burn_target: 960,
+      window_start: '09:00',
+      window_end: '19:00',
+      protein_min_g: null,
+      protein_max_g: null,
+      weights_per_week: 2,
+    });
+    await logOn(daysAgo(1), 12, 100, 100);
+
+    const weeks = (await get('/api/trends?days=28')).json().weights_weeks;
+    const loggedWeek = weeks.find(
+      (w: { week_start: string }) => w.week_start === mondayOf(daysAgo(1)),
+    );
+
+    expect(loggedWeek.state).not.toBe('no_record');
   });
 
   it('does not count another account’s weights', async () => {

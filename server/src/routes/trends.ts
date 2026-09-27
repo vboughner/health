@@ -59,6 +59,8 @@ export function registerTrendRoutes(app: FastifyInstance, opts: AppOptions): voi
       // one set of goals, and every day must be judged by its own.
       const periods = listGoalPeriods(opts.db, user.id);
 
+      const recordedDays = new Set<string>();
+
       const rows = range.map((day) => {
         const goals = goalsForDay(periods, day);
         const food = foodByDay.get(day);
@@ -70,6 +72,7 @@ export function registerTrendRoutes(app: FastifyInstance, opts: AppOptions): voi
         // predate the question. A day with anything on it did happen, so an absent
         // review there is a real miss and stays false.
         const hasRecord = Boolean(food || burn.get(day) || entry);
+        if (hasRecord) recordedDays.add(day);
 
         const window = food
           ? eatingWindow(
@@ -132,6 +135,7 @@ export function registerTrendRoutes(app: FastifyInstance, opts: AppOptions): voi
         weights_weeks: weeklySessions(
           range,
           new Set(weightsDays(opts.db, user.id, from, today)),
+          recordedDays,
           (day) => goalsForDay(periods, day).weights_per_week,
           today,
         ),

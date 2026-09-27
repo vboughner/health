@@ -100,7 +100,7 @@ export function mondayOf(day: string): string {
   return addDays(day, -((weekday + 6) % 7));
 }
 
-export type WeekState = 'met' | 'missed' | 'in_progress' | 'partial' | 'no_target';
+export type WeekState = 'met' | 'missed' | 'in_progress' | 'partial' | 'no_target' | 'no_record';
 
 export interface WeekSessions {
   /** The Monday. Can fall before the range when the range starts midweek. */
@@ -118,23 +118,33 @@ export interface WeekSessions {
  * The current week is never a miss — there are days left in it. Nor is a week the
  * range starts partway through: its count covers only the days in view, so judging it
  * would call a met week missed for having been cut off by the chart.
+ *
+ * A week whose in-range days have no record of any kind — before the account had any
+ * data, or a stretch that went untouched — is `no_record` regardless of its target,
+ * the same refusal to judge an unlived day that the route already makes per day. This
+ * outranks every other state, including `no_target`, so an unrecorded week never
+ * shows a count.
  */
 export function weeklySessions(
   range: string[],
   sessionDays: Set<string>,
+  recordedDays: Set<string>,
   targetFor: (day: string) => number | null,
   today: string,
 ): WeekSessions[] {
   const weeks = new Map<string, number>();
+  const recorded = new Map<string, boolean>();
   for (const day of range) {
     const monday = mondayOf(day);
     weeks.set(monday, (weeks.get(monday) ?? 0) + (sessionDays.has(day) ? 1 : 0));
+    recorded.set(monday, (recorded.get(monday) ?? false) || recordedDays.has(day));
   }
 
   return [...weeks].map(([week_start, count]) => {
     const target = targetFor(week_start);
     let state: WeekState;
-    if (target === null) state = 'no_target';
+    if (!recorded.get(week_start)) state = 'no_record';
+    else if (target === null) state = 'no_target';
     else if (count >= target) state = 'met';
     else if (addDays(week_start, 6) >= today) state = 'in_progress';
     else if (week_start < range[0]) state = 'partial';

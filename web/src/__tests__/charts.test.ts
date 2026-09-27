@@ -74,4 +74,8 @@ describe('weekCellText', () => {
     expect(weekCellText({ count: 0, state: 'partial' })).toBe('0');
     expect(weekCellText({ count: 3, state: 'no_target' })).toBe('3');
   });
+
+  it('shows nothing for a week with no record at all', () => {
+    expect(weekCellText({ count: 0, state: 'no_record' })).toBe('');
+  });
 });
