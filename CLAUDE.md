@@ -249,11 +249,28 @@ split one card up. Past the maximum it stays that same green and keeps filling: 
 enough is the only thing this bar tracks, so there is nothing to warn about on the way
 past it.
 
+**A session on the weekly weights strip is a day, not a log.** `weeklySessions`
+(`domain/trend.ts`) counts days with at least one weights entry, so two workouts
+logged the same day still count once. Each week is judged by the target in force on
+its **Monday** (`goalsForDay` at `week_start`), and three weeks are left unjudged
+rather than scored: the current week, because there are still days left in it to log;
+a week the range starts partway through, because its count only covers the days the
+chart can see and would otherwise read as missed for having been cut off; and a week
+with nothing recorded at all, `no_record`, the same refusal `hasRecord` makes per day
+in `routes/trends.ts` for `goals_reviewed` — a stretch that predates the account or
+went untouched is not a miss. `no_record` outranks every other state, including
+`no_target`, so an unrecorded week never shows a count.
+
 **Chart colours were chosen with a CVD validator, not by eye.** Green/yellow/red is the
 hardest triple for red-green colourblindness. The dark-mode yellow deliberately sits
 above the house lightness band — darkening it into the band collapses green/yellow
 separation to ~6 ΔE, and telling two macros apart matters more than uniform mark
 weight. If you restyle these, re-run the validator rather than guessing.
+`--ink-on-accent` (`web/src/styles.css`) is the token for text set on a solid
+`--accent` fill, such as the strip's "met" cell: it is not a fixed colour because
+`--bg` flips meaning between themes, and light mode's darker accent fails contrast
+with light mode's own near-white `--bg` — the token re-steps to whichever of `--bg` /
+`--text` is that theme's dark ink instead.
 
 **A recording's duration is measured by the recorder, not read from the file.** Blobs
 out of `MediaRecorder` routinely carry no duration in their header and an `<audio>`
