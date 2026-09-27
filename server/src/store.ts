@@ -592,6 +592,19 @@ export function burnByDay(
     .all(userId, from, to) as { local_day: string; kcal: number; minutes: number }[];
 }
 
+/** The days in a range with at least one weights entry. A day is one session. */
+export function weightsDays(db: Db, userId: number, from: string, to: string): string[] {
+  return (
+    db
+      .prepare(
+        `SELECT DISTINCT local_day FROM exercise_log
+         WHERE user_id = ? AND activity = 'weights' AND local_day BETWEEN ? AND ?
+         ORDER BY local_day`,
+      )
+      .all(userId, from, to) as { local_day: string }[]
+  ).map((r) => r.local_day);
+}
+
 export function dailyEntriesInRange(
   db: Db,
   userId: number,

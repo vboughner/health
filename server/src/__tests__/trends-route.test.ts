@@ -303,4 +303,100 @@ describe('GET /api/trends', () => {
     // The top-level figure is the current one, for the card heading.
     expect(body.budget).toBe(2000);
   });
+
+  it('counts weights sessions per week, one per day', async () => {
+    const d = daysAgo(1);
+    // Calories burned come from the MET table scaled by body weight, so logging
+    // exercise at all needs a weight on file first.
+    await put(`/api/day/${d}`, { weight_lb: 195 });
+    await post('/api/log/exercise', { activity: 'weights', minutes: 40, date: d });
+    await post('/api/log/exercise', { activity: 'weights', minutes: 20, date: d });
+    await post('/api/log/exercise', { activity: 'running', minutes: 30, date: d });
+
+    const res = await get('/api/trends?days=14');
+    const total = res
+      .json()
+      .weights_weeks.reduce((n: number, w: { count: number }) => n + w.count, 0);
+    expect(total).toBe(1);
+  });
+
+  it('judges weights weeks against the target on their Monday', async () => {
+    putGoalPeriod(db, userId, {
+      effective_from: '2020-01-01',
+      kcal_budget: 2400,
+      burn_target: 960,
+      window_start: '09:00',
+      window_end: '19:00',
+      protein_min_g: null,
+      protein_max_g: null,
+      weights_per_week: 2,
+    });
+    db.prepare('DELETE FROM goal_periods WHERE user_id = ? AND effective_from > ?').run(
+      userId,
+      '2020-01-01',
+    );
+
+    const res = await get('/api/trends?days=14');
+    expect(res.json().weights_per_week).toBe(2);
+    expect(res.json().weights_weeks.every((w: { target: number }) => w.target === 2)).toBe(true);
+  });
+
+  it('carries each day its own protein range, and counts days in it', async () => {
+    db.prepare('DELETE FROM goal_periods WHERE user_id = ?').run(userId);
+    putGoalPeriod(db, userId, {
+      effective_from: '2020-01-01',
+      kcal_budget: 2400,
+      burn_target: 960,
+      window_start: '09:00',
+      window_end: '19:00',
+      protein_min_g: null,
+      protein_max_g: null,
+      weights_per_week: null,
+    });
+    putGoalPeriod(db, userId, {
+      effective_from: daysAgo(2),
+      kcal_budget: 2400,
+      burn_target: 960,
+      window_start: '09:00',
+      window_end: '19:00',
+      protein_min_g: 1,
+      protein_max_g: 400,
+      weights_per_week: null,
+    });
+
+    // USDA_BANANA is 1.09 g protein per 100 g; 500 g of it is 5.45 g, which the
+    // route rounds per day (as it rounds every macro) to 6 g — inside 1-400.
+    await logOn(daysAgo(1), 12, 89, 500);
+    await logOn(daysAgo(5), 12, 89, 500);
+
+    const res = await get('/api/trends?days=7');
+    const days = res.json().days;
+    expect(days.find((r: { day: string }) => r.day === daysAgo(5)).protein_min_g).toBeNull();
+    expect(days.find((r: { day: string }) => r.day === daysAgo(1)).protein_min_g).toBe(1);
+    expect(res.json().summary.protein_days_with_target).toBe(1);
+    expect(res.json().summary.protein_days_in_range).toBe(1);
+    expect(res.json().summary.avg_protein_g).toBe(6);
+  });
+
+  it('does not count another account’s weights', async () => {
+    const other = await loginAs(app, db, 'sam');
+    await app.inject({
+      method: 'PUT',
+      url: `/api/day/${daysAgo(1)}`,
+      payload: { weight_lb: 195 },
+      headers: { cookie: other.cookie },
+    });
+    await app.inject({
+      method: 'POST',
+      url: '/api/log/exercise',
+      payload: { activity: 'weights', minutes: 40, date: daysAgo(1) },
+      headers: { cookie: other.cookie },
+    });
+
+    const res = await get('/api/trends?days=14');
+    const total = res
+      .json()
+      .weights_weeks.reduce((n: number, w: { count: number }) => n + w.count, 0);
+    expect(total).toBe(0);
+  });
 });

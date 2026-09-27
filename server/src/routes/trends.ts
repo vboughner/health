@@ -1,9 +1,21 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppOptions } from '../app';
 import { localDay, addDays, dayRange, eatingWindow, sleepHours } from '../domain/day';
-import { weeklyTrend, movingAverage, currentStreak, complianceRate } from '../domain/trend';
+import {
+  weeklyTrend,
+  movingAverage,
+  currentStreak,
+  complianceRate,
+  weeklySessions,
+} from '../domain/trend';
 import { goalsForDay } from '../domain/goals';
-import { foodTotalsByDay, burnByDay, dailyEntriesInRange, listGoalPeriods } from '../store';
+import {
+  foodTotalsByDay,
+  burnByDay,
+  dailyEntriesInRange,
+  listGoalPeriods,
+  weightsDays,
+} from '../store';
 
 const MAX_DAYS = 365;
 
@@ -86,6 +98,8 @@ export function registerTrendRoutes(app: FastifyInstance, opts: AppOptions): voi
           window_compliant: window?.compliant ?? null,
           goals_reviewed: hasRecord ? (entry?.goals_reviewed ?? false) : null,
           budget: goals.kcal_budget,
+          protein_min_g: goals.protein_min_g,
+          protein_max_g: goals.protein_max_g,
         };
       });
 
@@ -101,17 +115,34 @@ export function registerTrendRoutes(app: FastifyInstance, opts: AppOptions): voi
       const reviewedDays = rows.filter((r) => r.goals_reviewed);
       const current = goalsForDay(periods, today);
 
+      // Only logged days with a target in force are judged — a day before the target
+      // existed is not a miss, and neither is a day with nothing logged.
+      const proteinJudged = loggedDays.filter((r) => r.protein_min_g !== null);
+      const proteinInRange = proteinJudged.filter(
+        (r) => r.protein_g! >= r.protein_min_g! && r.protein_g! <= r.protein_max_g!,
+      );
+
       return {
         from,
         to: today,
         days: rows,
         budget: current.kcal_budget,
         burn_target: current.burn_target,
+        weights_per_week: current.weights_per_week,
+        weights_weeks: weeklySessions(
+          range,
+          new Set(weightsDays(opts.db, user.id, from, today)),
+          (day) => goalsForDay(periods, day).weights_per_week,
+          today,
+        ),
         summary: {
           weight_trend_per_week: weeklyTrend(weights),
           weight_smoothed: movingAverage(weights),
           latest_weight: weights.length ? weights[weights.length - 1].value : null,
           avg_kcal: average(loggedDays.map((r) => r.kcal!)),
+          avg_protein_g: average(loggedDays.map((r) => r.protein_g!)),
+          protein_days_with_target: proteinJudged.length,
+          protein_days_in_range: proteinInRange.length,
           avg_burned: average(rows.filter((r) => r.burned !== null).map((r) => r.burned!)),
           avg_sleep_hours: average(
             rows.filter((r) => r.sleep_hours !== null).map((r) => r.sleep_hours!),
