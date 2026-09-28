@@ -375,8 +375,29 @@ describe('GET /api/trends', () => {
     expect(days.find((r: { day: string }) => r.day === daysAgo(5)).protein_min_g).toBeNull();
     expect(days.find((r: { day: string }) => r.day === daysAgo(1)).protein_min_g).toBe(1);
     expect(res.json().summary.protein_days_with_target).toBe(1);
-    expect(res.json().summary.protein_days_in_range).toBe(1);
+    expect(res.json().summary.protein_days_reaching_min).toBe(1);
     expect(res.json().summary.avg_protein_g).toBe(6);
+  });
+
+  it('counts a day above the maximum as reaching the minimum', async () => {
+    db.prepare('DELETE FROM goal_periods WHERE user_id = ?').run(userId);
+    putGoalPeriod(db, userId, {
+      effective_from: '2020-01-01',
+      kcal_budget: 2400,
+      burn_target: 960,
+      window_start: '09:00',
+      window_end: '19:00',
+      protein_min_g: 1,
+      protein_max_g: 4,
+      weights_per_week: null,
+    });
+
+    // 500 g of USDA_BANANA rounds to 6 g protein — above the max of 4, still >= the
+    // min of 1, and "reaching the minimum" is all this count judges.
+    await logOn(daysAgo(1), 12, 89, 500);
+
+    const res = await get('/api/trends?days=7');
+    expect(res.json().summary.protein_days_reaching_min).toBe(1);
   });
 
   it('leaves every week no_record when nothing at all has been logged', async () => {

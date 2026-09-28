@@ -8,16 +8,17 @@ export interface ProteinBarState {
   target: string | null;
   fill: number;
   band: { left: number; width: number } | null;
-  inRange: boolean;
+  reachedMin: boolean;
 }
 
 /**
  * The day's protein as a bar against its range. Pure, so every state is tested
  * without rendering.
  *
- * Above the maximum stays green and keeps filling: the September 2026 plan is about
- * getting enough, and too much protein is not the risk it tracks, so the bar never
- * warns. Zero-based, like every bar in this app.
+ * "Reached" means at or above the minimum — that is the whole judgement. Above the
+ * maximum stays green and keeps filling: the September 2026 plan is about getting
+ * enough, and too much protein is not the risk it tracks, so the bar never warns.
+ * Zero-based, like every bar in this app.
  */
 export function proteinBar(p: {
   grams: number;
@@ -27,7 +28,7 @@ export function proteinBar(p: {
 }): ProteinBarState {
   const label = `${p.grams}${p.floor ? '+' : ''} g`;
   if (p.min === null || p.max === null) {
-    return { label, target: null, fill: 0, band: null, inRange: false };
+    return { label, target: null, fill: 0, band: null, reachedMin: false };
   }
 
   const pct = (g: number) => Math.min(100, (g / p.max!) * MAX_AT);
@@ -36,7 +37,7 @@ export function proteinBar(p: {
     target: `${p.min}–${p.max} g`,
     fill: pct(p.grams),
     band: { left: pct(p.min), width: pct(p.max) - pct(p.min) },
-    inRange: p.grams >= p.min,
+    reachedMin: p.grams >= p.min,
   };
 }
 
@@ -66,14 +67,14 @@ export function ProteinBar({ protein }: { protein: DaySummary['food']['protein']
       <div
         className="protein-bar"
         role="img"
-        aria-label={`Protein ${s.label} of ${s.target}${s.inRange ? ', in range' : ''}`}
+        aria-label={`Protein ${s.label} of ${s.target}${s.reachedMin ? ', minimum reached' : ''}`}
       >
         <div
           className="protein-band"
           style={{ left: `${s.band.left}%`, width: `${s.band.width}%` }}
         />
         <div
-          className={s.inRange ? 'protein-fill protein-fill-in' : 'protein-fill'}
+          className={s.reachedMin ? 'protein-fill protein-fill-reached' : 'protein-fill'}
           style={{ width: `${s.fill}%` }}
         />
       </div>

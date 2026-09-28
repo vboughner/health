@@ -119,11 +119,11 @@ export function registerTrendRoutes(app: FastifyInstance, opts: AppOptions): voi
       const current = goalsForDay(periods, today);
 
       // Only logged days with a target in force are judged — a day before the target
-      // existed is not a miss, and neither is a day with nothing logged.
+      // existed is not a miss, and neither is a day with nothing logged. Reaching the
+      // minimum is the whole judgement: the maximum is not a ceiling this count
+      // enforces, any more than the protein bar on Today warns above it.
       const proteinJudged = loggedDays.filter((r) => r.protein_min_g !== null);
-      const proteinInRange = proteinJudged.filter(
-        (r) => r.protein_g! >= r.protein_min_g! && r.protein_g! <= r.protein_max_g!,
-      );
+      const proteinReachingMin = proteinJudged.filter((r) => r.protein_g! >= r.protein_min_g!);
 
       return {
         from,
@@ -146,7 +146,7 @@ export function registerTrendRoutes(app: FastifyInstance, opts: AppOptions): voi
           avg_kcal: average(loggedDays.map((r) => r.kcal!)),
           avg_protein_g: average(loggedDays.map((r) => r.protein_g!)),
           protein_days_with_target: proteinJudged.length,
-          protein_days_in_range: proteinInRange.length,
+          protein_days_reaching_min: proteinReachingMin.length,
           avg_burned: average(rows.filter((r) => r.burned !== null).map((r) => r.burned!)),
           avg_sleep_hours: average(
             rows.filter((r) => r.sleep_hours !== null).map((r) => r.sleep_hours!),

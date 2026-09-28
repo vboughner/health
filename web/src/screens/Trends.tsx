@@ -43,7 +43,7 @@ interface Trends {
     avg_kcal: number | null;
     avg_protein_g: number | null;
     protein_days_with_target: number;
-    protein_days_in_range: number;
+    protein_days_reaching_min: number;
     avg_burned: number | null;
     avg_sleep_hours: number | null;
     days_logged: number;
@@ -102,6 +102,16 @@ export function Trends({
 
   const s = data.summary;
   const target = -0.5; // the half-pound-a-week goal
+
+  // The days the protein count actually judges: logged, and a target was in force.
+  // Naming the minimum in the caption only holds when every one of them shares the
+  // same figure — a range spanning a change to it gets the vaguer "the minimum".
+  const proteinMins = new Set(
+    data.days
+      .filter((d) => d.kcal !== null && d.protein_min_g !== null)
+      .map((d) => d.protein_min_g),
+  );
+  const proteinMinLabel = proteinMins.size === 1 ? `${[...proteinMins][0]} g` : 'the minimum';
 
   return (
     <div className="stack">
@@ -218,7 +228,7 @@ export function Trends({
           />
           <div className="tiny faint">
             {s.protein_days_with_target > 0
-              ? `${s.protein_days_in_range} of ${s.protein_days_with_target} logged days in range.`
+              ? `${s.protein_days_reaching_min} of ${s.protein_days_with_target} logged days reaching ${proteinMinLabel}.`
               : 'No protein range set for these days — add one on Settings.'}
           </div>
         </div>

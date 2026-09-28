@@ -10,22 +10,22 @@ describe('proteinBar', () => {
     expect(s.band!.left + s.band!.width).toBeCloseTo(85);
   });
 
-  it('is not in range below the minimum', () => {
+  it('has not reached the minimum below it', () => {
     const s = proteinBar(day(72));
-    expect(s.inRange).toBe(false);
+    expect(s.reachedMin).toBe(false);
     expect(s.fill).toBeCloseTo((72 / 130) * 85);
     expect(s.label).toBe('72 g');
     expect(s.target).toBe('90–130 g');
   });
 
-  it('is in range from the minimum, inclusive', () => {
-    expect(proteinBar(day(90)).inRange).toBe(true);
-    expect(proteinBar(day(130)).inRange).toBe(true);
+  it('reaches the minimum from it, inclusive', () => {
+    expect(proteinBar(day(90)).reachedMin).toBe(true);
+    expect(proteinBar(day(130)).reachedMin).toBe(true);
   });
 
-  it('stays in range above the maximum — too much protein is not what this watches', () => {
+  it('stays reached above the maximum — too much protein is not what this watches', () => {
     const s = proteinBar(day(150));
-    expect(s.inRange).toBe(true);
+    expect(s.reachedMin).toBe(true);
   });
 
   it('fills to the edge and no further', () => {
@@ -40,6 +40,6 @@ describe('proteinBar', () => {
     const s = proteinBar({ grams: 72, min: null, max: null, floor: false });
     expect(s.band).toBeNull();
     expect(s.target).toBeNull();
-    expect(s.inRange).toBe(false);
+    expect(s.reachedMin).toBe(false);
   });
 });

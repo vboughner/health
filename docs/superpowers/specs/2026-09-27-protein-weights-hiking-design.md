@@ -135,8 +135,10 @@ its widths — goes in a web helper with tests; the component stays thin.
 **Protein chart.** Daily grams as zero-based bars, the band drawn as a shaded strip
 that steps where the range changed (each day carries its own `protein_min_g` /
 `protein_max_g`, like `budget`). Days with no target draw bars with no band. Headline:
-"avg 84 g · 9 of 30 days in range", where the denominator is logged days that *had* a
-target. Hidden when macros or protein is effectively off.
+"avg 84 g · 9 of 30 logged days reaching 90 g", where the denominator is logged days
+that *had* a target, and reaching means the minimum — the maximum is not a ceiling
+this count enforces, any more than the bar on Today warns above it. Hidden when macros
+or protein is effectively off.
 
 **Weights strip.** One cell per Monday–Sunday week overlapping the range.
 
