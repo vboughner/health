@@ -1920,10 +1920,12 @@ textarea:focus {
 }
 
 /* Narrow on purpose: the labels are one short word, and the time input beside it
-   needs the width to show a full "10:33 PM" without clipping. */
+   needs the width to show a full "10:33 PM" without clipping. Tighter than a
+   comfortable button would otherwise be, down to the tap-target floor (56px wide,
+   44px tall — met here by height:stretch to the time input beside it). */
 .sleep-btn {
-  flex: 0 0 74px;
-  padding: 0 8px;
+  flex: 0 0 56px;
+  padding: 0 4px;
   font-size: 14px;
 }
 
