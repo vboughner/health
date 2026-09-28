@@ -333,38 +333,71 @@ export function weekCellText(w: { count: number; state: WeekState }): string {
 }
 
 /**
+ * Names a week's state in words, for a title and an aria-label that must not depend
+ * on the cell's colour or border to be understood.
+ */
+export function weekLabel(w: { target: number | null; state: WeekState }): string {
+  switch (w.state) {
+    case 'met':
+      return 'met';
+    case 'missed':
+      return `short of ${w.target}`;
+    case 'in_progress':
+      return 'this week';
+    case 'partial':
+      return 'partial week';
+    case 'no_target':
+      return 'no target';
+    case 'no_record':
+      return 'not logged';
+  }
+}
+
+/**
  * One cell per Mon–Sun week, with its count. A week under target is a plain cell,
  * not amber: amber is for warnings and window violations, and the number already
  * says how far short it came.
+ *
+ * `missed`, `partial` and `no_target` must not read as the same thing by colour
+ * alone: `partial` and `no_target` are unjudged, so they draw with no fill and a
+ * dashed border rather than the solid `missed` look, and the legend only offers
+ * Met/Short when some week actually was judged either way.
  */
 export function WeeksStrip({
   weeks,
 }: {
   weeks: { week_start: string; count: number; target: number | null; state: WeekState }[];
 }) {
+  const hasJudged = weeks.some(
+    (w) => w.state === 'met' || w.state === 'missed' || w.state === 'in_progress',
+  );
   const hasProgress = weeks.some((w) => w.state === 'in_progress');
+  const hasNoTarget = weeks.some((w) => w.state === 'no_target');
+  const hasPartial = weeks.some((w) => w.state === 'partial');
   const hasNoRecord = weeks.some((w) => w.state === 'no_record');
   return (
     <div className="strip-wrap">
       <div className="strip">
-        {weeks.map((w) => (
-          <div
-            key={w.week_start}
-            className={`strip-cell week-cell week-${w.state}`}
-            title={
-              w.state === 'no_record'
-                ? `Week of ${longDay(w.week_start)} — not logged`
-                : `Week of ${longDay(w.week_start)} — ${w.count} of ${w.target ?? 'no target'}`
-            }
-          >
-            {weekCellText(w)}
-          </div>
-        ))}
+        {weeks.map((w) => {
+          const label = `Week of ${longDay(w.week_start)} — ${weekLabel(w)}`;
+          return (
+            <div
+              key={w.week_start}
+              className={`strip-cell week-cell week-${w.state}`}
+              title={label}
+              aria-label={label}
+            >
+              {weekCellText(w)}
+            </div>
+          );
+        })}
       </div>
       <div className="strip-legend">
-        <LegendItem cls="week-met" label="Met" />
-        <LegendItem cls="week-missed" label="Short" />
+        {hasJudged && <LegendItem cls="week-met" label="Met" />}
+        {hasJudged && <LegendItem cls="week-missed" label="Short" />}
         {hasProgress && <LegendItem cls="week-in_progress" label="This week" />}
+        {hasNoTarget && <LegendItem cls="week-no_target" label="No target" />}
+        {hasPartial && <LegendItem cls="week-partial" label="Partial week" />}
         {hasNoRecord && <LegendItem cls="week-no_record" label="Not logged" />}
       </div>
     </div>

@@ -1490,8 +1490,13 @@ textarea:focus {
   border: 1px dashed var(--border);
 }
 
+/* Unjudged, not merely "missed": no fill (unlike the solid --surface-2 of a plain
+   missed week), so the count reads against a dashed border rather than a solid one,
+   the same family as .week-in_progress. */
 .week-partial,
 .week-no_target {
+  background: none;
+  border: 1px dashed var(--border);
   color: var(--text-faint);
 }
 

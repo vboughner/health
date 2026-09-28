@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { stepPath, weekCellText } from '../components/charts';
+import { stepPath, weekCellText, weekLabel } from '../components/charts';
 
 /** A geometry stub: x is the index times ten, y is the value negated. */
 const geom = {
@@ -77,5 +77,31 @@ describe('weekCellText', () => {
 
   it('shows nothing for a week with no record at all', () => {
     expect(weekCellText({ count: 0, state: 'no_record' })).toBe('');
+  });
+});
+
+describe('weekLabel', () => {
+  it('names a met week', () => {
+    expect(weekLabel({ target: 2, state: 'met' })).toBe('met');
+  });
+
+  it('names a missed week by how far short it fell', () => {
+    expect(weekLabel({ target: 2, state: 'missed' })).toBe('short of 2');
+  });
+
+  it('names the current week as still going', () => {
+    expect(weekLabel({ target: 2, state: 'in_progress' })).toBe('this week');
+  });
+
+  it('names a first week cut short by the range', () => {
+    expect(weekLabel({ target: 2, state: 'partial' })).toBe('partial week');
+  });
+
+  it('names a week with no target', () => {
+    expect(weekLabel({ target: null, state: 'no_target' })).toBe('no target');
+  });
+
+  it('names a week with nothing recorded', () => {
+    expect(weekLabel({ target: null, state: 'no_record' })).toBe('not logged');
   });
 });
