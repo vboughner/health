@@ -1414,13 +1414,16 @@ textarea:focus {
 .strip {
   display: flex;
   gap: 2px;
+  /* Never wider than the card: at 90 cells, a 2px min-width floor plus the gaps
+     added up to more than the card itself, and the strip ran past its edge. */
+  min-width: 0;
 }
 
 .strip-cell {
   flex: 1;
   height: 26px;
   border-radius: 3px;
-  min-width: 2px;
+  min-width: 0;
 }
 
 .strip-ok {
