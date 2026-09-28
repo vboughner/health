@@ -1282,9 +1282,12 @@ textarea:focus {
   margin-top: 12px;
 }
 
+/* The minutes column is sized to its content — at most 3 digits plus the "min"
+   unit label — rather than given room to spare, so the activity select (whose
+   longest label is "Climbing") gets the width instead. */
 .ex-fields {
   display: grid;
-  grid-template-columns: 1fr 92px;
+  grid-template-columns: 1fr 84px;
   gap: 10px;
   align-items: center;
 }
