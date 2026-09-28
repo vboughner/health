@@ -390,6 +390,34 @@ describe('PUT /settings/goals', () => {
     await app.close();
   });
 
+  it('keeps targets a body leaves out under a correction too', async () => {
+    const db = testDb();
+    const app = testApp(db);
+    const { userId, cookie } = await loginAs(app, db, 'van');
+    withHistory(db, userId);
+    const put = (payload: Record<string, unknown>) =>
+      app.inject({ method: 'PUT', url: '/api/settings/goals', headers: { cookie }, payload });
+
+    await put({
+      ...GOALS,
+      protein_min_g: 90,
+      protein_max_g: 130,
+      weights_per_week: 2,
+      scope: 'from_today',
+    });
+    // The four-field body a phone on the cached old shell would still send, this
+    // time correcting today's period rather than starting a new one.
+    const res = await put({ ...GOALS, kcal_budget: 2300, scope: 'correction' });
+
+    expect(res.json().goals).toMatchObject({
+      kcal_budget: 2300,
+      protein_min_g: 90,
+      protein_max_g: 130,
+      weights_per_week: 2,
+    });
+    await app.close();
+  });
+
   it('clears a target sent as null', async () => {
     const db = testDb();
     const app = testApp(db);
@@ -521,6 +549,25 @@ describe('PUT /settings/features', () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.json().features).toEqual({ ...ALL_ON, exercise: false, protein: false });
+    await app.close();
+  });
+
+  it('rejects a body that is not an object of features, rather than 500ing on it', async () => {
+    const db = testDb();
+    const app = testApp(db);
+    const { cookie } = await loginAs(app, db, 'van');
+
+    for (const payload of [true, 42, 'nope', ['food']] as unknown[]) {
+      const res = await app.inject({
+        method: 'PUT',
+        url: '/api/settings/features',
+        headers: { cookie, 'content-type': 'application/json' },
+        payload: JSON.stringify(payload),
+      });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toBe('Expected an object of features');
+    }
     await app.close();
   });
 

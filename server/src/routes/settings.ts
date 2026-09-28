@@ -92,6 +92,13 @@ export function registerSettingsRoutes(app: FastifyInstance, opts: AppOptions): 
     async (request, reply) => {
       const body = request.body ?? {};
 
+      // A JSON body can be a primitive or an array as easily as an object — `key in
+      // body` throws on the former and silently matches nothing on the latter, so
+      // both get a 400 naming what was expected rather than a 500 or a no-op 200.
+      if (typeof body !== 'object' || Array.isArray(body)) {
+        return reply.code(400).send({ error: 'Expected an object of features' });
+      }
+
       // Built key by key from FEATURE_KEYS rather than taken wholesale, so an
       // unrecognised key simply never arrives. A key the body leaves out keeps what is
       // stored: a phone still running a cached older shell knows fewer toggles, and

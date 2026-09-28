@@ -289,7 +289,7 @@ describe('weeklySessions', () => {
     });
   });
 
-  it('calls a finished week with a target and no recorded day not_recorded, not missed', () => {
+  it('calls a finished week with a target and no recorded day no_record, not missed', () => {
     const weeks = weeklySessions(range, new Set(), new Set(), two, '2026-09-27');
     expect(weeks[1].state).toBe('no_record');
   });
