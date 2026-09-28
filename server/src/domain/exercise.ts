@@ -15,8 +15,7 @@
 export const ACTIVITIES = {
   running: { label: 'Running', met: 9.8 },
   climbing: { label: 'Climbing', met: 8.0 },
-  // Compendium 17080, "hiking, cross country". Replacing some running from September
-  // 2026: weight-bearing like running, with far less impact.
+  // Compendium 17080, "hiking, cross country".
   hiking: { label: 'Hiking', met: 6.0 },
   weights: { label: 'Weights', met: 5.0 },
   walking: { label: 'Walking', met: 3.5 },

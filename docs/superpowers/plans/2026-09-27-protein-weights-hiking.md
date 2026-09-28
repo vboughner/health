@@ -86,8 +86,7 @@ Make sure `ACTIVITIES` and `isActivity` are in the file's import from `../domain
 
 ```ts
   climbing: { label: 'Climbing', met: 8.0 },
-  // Compendium 17080, "hiking, cross country". Replacing some running from September
-  // 2026: weight-bearing like running, with far less impact.
+  // Compendium 17080, "hiking, cross country".
   hiking: { label: 'Hiking', met: 6.0 },
 ```
 
@@ -291,8 +290,8 @@ At the end of `validateGoals`, before `return null`:
 - [ ] **Step 1: Write the migration** `server/src/migrations/009_protein_weights.sql`:
 
 ```sql
--- Targets from the plan as revised in September 2026: protein in grams
--- to hold on to muscle, and weights 2-3 times a week.
+-- Targets from the plan as revised in September 2026: a daily protein range in
+-- grams and weights sessions per week.
 --
 -- Null for every existing period, deliberately. Filling in 90-130 and 2 would re-judge
 -- every day since August against goals adopted in late September, which is what

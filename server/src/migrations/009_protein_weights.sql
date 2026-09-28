@@ -1,5 +1,5 @@
--- Targets from the plan as revised in September 2026: protein in grams
--- to hold on to muscle, and weights 2-3 times a week.
+-- Targets from the plan as revised in September 2026: a daily protein range in
+-- grams and weights sessions per week.
 --
 -- Null for every existing period, deliberately. Filling in 90-130 and 2 would re-judge
 -- every day since August against goals adopted in late September, which is what

@@ -1,7 +1,7 @@
 # Protein target, weights per week, and hiking
 
-`Personal/Mid-2026 Goals.md` was revised in September 2026. The priority moved from
-losing 20 lb to keeping muscle, and three things the app shows became wrong or missing:
+`Personal/Mid-2026 Goals.md` was revised in September 2026, and three things the app
+shows became wrong or missing:
 
 - **Protein.** The new target is 90–130 g/day. The macro bar was built for 80/10/10,
   where ~10% protein (~60 g) reads as on-plan. A share of calories cannot express a
@@ -9,9 +9,8 @@ losing 20 lb to keeping muscle, and three things the app shows became wrong or m
 - **Weights.** The plan moved from one session a week to 2–3. Nothing counts them.
 - **Hiking.** Running is being reduced in favour of hiking, which is not in the list.
 
-Out of scope, deliberately: the hardcoded −0.5 lb/week line on Trends, waist size,
-protein per meal, fatigue, calcium, and future-dated goal changes. Each was discussed
-and deferred.
+Out of scope, deliberately: other ideas from the revision were deferred to later
+changes.
 
 ## Data
 
