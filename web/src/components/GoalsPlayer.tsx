@@ -27,14 +27,24 @@ export function GoalsPlayer({ recording }: { recording: GoalRecording | null }) 
   const audioRef = useRef<HTMLAudioElement>(null);
 
   /**
-   * Cancelling a load calls pause() on an element whose play() promise hasn't settled,
-   * which makes that promise reject — a rejection that means the user changed their
-   * mind, not that anything went wrong. Bumping this on every fresh press and on every
-   * cancel is what lets the .then()/.catch() below tell "this is the attempt I'm still
-   * waiting on" from "this is a stale settle from one the user already cancelled", so a
-   * cancelled load never flashes the error message.
+   * A count of presses, bumped on every fresh press AND on every stop — cancelling a
+   * load in progress or stopping audio that's already playing, both go through the
+   * same branch below and both bump it. That's what lets the .then()/.catch() tell
+   * "this is the attempt I'm still waiting on" from "this is a stale settle from one
+   * the user already walked away from": cancelling a load calls pause() on an element
+   * whose play() promise hasn't settled, which makes that promise reject — a rejection
+   * that means the user changed their mind, not that anything went wrong.
    */
   const attemptRef = useRef(0);
+
+  /**
+   * The value `attemptRef` held right after the last stop, or -1 if nothing has been
+   * stopped yet. `onError` below uses it the same way: `attemptRef.current` moving
+   * past this means a newer attempt has started since, so whatever the element is
+   * doing now belongs to that attempt rather than to the one that was walked away
+   * from.
+   */
+  const cancelledAttemptRef = useRef(-1);
 
   /**
    * Playback stops when this component does — leaving the Goals tab unmounts it, and
@@ -65,6 +75,7 @@ export function GoalsPlayer({ recording }: { recording: GoalRecording | null }) 
 
     if (playing || loading) {
       attemptRef.current += 1;
+      cancelledAttemptRef.current = attemptRef.current;
       el.pause();
       el.currentTime = 0;
       setPlaying(false);
@@ -117,6 +128,15 @@ export function GoalsPlayer({ recording }: { recording: GoalRecording | null }) 
         preload="none"
         onEnded={() => setPlaying(false)}
         onError={() => {
+          if (
+            isStaleMediaError({
+              loading,
+              playing,
+              attempt: attemptRef.current,
+              cancelledAttempt: cancelledAttemptRef.current,
+            })
+          )
+            return;
           setPlaying(false);
           setLoading(false);
           setError('Could not play that recording.');
@@ -126,6 +146,34 @@ export function GoalsPlayer({ recording }: { recording: GoalRecording | null }) 
       {error && <div className="error">{error}</div>}
     </>
   );
+}
+
+/**
+ * Whether an `error` event from the <audio> element is a stale echo of a load the user
+ * already walked away from, rather than this attempt's own.
+ *
+ * pause() does not abort the element's underlying network fetch, so a load or a
+ * playback that was cancelled can still error afterwards. It might seem like that
+ * could also corrupt a *later* attempt — the delayed error landing while a second
+ * press is loading or playing, and being mistaken for that second attempt's failure.
+ * It can't, on this element: `src` is fixed for the life of the component (a different
+ * recording remounts it via `key`, per the file header), and nothing here ever calls
+ * `load()`, so play() is called at most once per underlying resource fetch — a second
+ * press resumes the same fetch rather than starting a new one. There is only ever one
+ * fetch in flight, so whenever a newer attempt is loading or playing, an error belongs
+ * to it too; it is not stale, and must still surface (`loading`/`playing` below cover
+ * that). The only ambiguous moment is when nothing is currently attempting playback:
+ * an error landing there is stale only if it is this same, already-abandoned fetch,
+ * which the two attempt counts tell apart — `cancelledAttempt` caught up to `attempt`
+ * at the last stop, and nothing newer has been pressed since.
+ */
+export function isStaleMediaError(state: {
+  loading: boolean;
+  playing: boolean;
+  attempt: number;
+  cancelledAttempt: number;
+}): boolean {
+  return !state.loading && !state.playing && state.cancelledAttempt === state.attempt;
 }
 
 /* Hand-rolled inline SVG, like the charts: 24-unit box, currentColor throughout, so
