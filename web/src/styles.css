@@ -440,9 +440,21 @@ textarea:focus {
   animation: spin 0.7s linear infinite;
 }
 
+/* Standing in for an icon inside a .btn-icon (22px) rather than the default 18px. */
+.spinner-icon {
+  width: 22px;
+  height: 22px;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
   }
 }
 

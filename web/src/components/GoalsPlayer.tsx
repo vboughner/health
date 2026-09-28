@@ -10,6 +10,11 @@
  * when a recording is replaced or deleted, `playing`/`error` describe bytes that no
  * longer exist, and that is a state reset on an identity change, which React does by
  * remounting via a changing `key` rather than by setState inside an effect.
+ *
+ * A press sits in `loading` between the tap and the audio actually starting — on a
+ * phone, over the network, `play()` can take a second or more to have anything to play.
+ * The button stays enabled while loading so a second press cancels it, the same as
+ * stopping playback does.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -17,8 +22,19 @@ import type { GoalRecording } from '../types';
 
 export function GoalsPlayer({ recording }: { recording: GoalRecording | null }) {
   const [playing, setPlaying] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  /**
+   * Cancelling a load calls pause() on an element whose play() promise hasn't settled,
+   * which makes that promise reject — a rejection that means the user changed their
+   * mind, not that anything went wrong. Bumping this on every fresh press and on every
+   * cancel is what lets the .then()/.catch() below tell "this is the attempt I'm still
+   * waiting on" from "this is a stale settle from one the user already cancelled", so a
+   * cancelled load never flashes the error message.
+   */
+  const attemptRef = useRef(0);
 
   /**
    * Playback stops when this component does — leaving the Goals tab unmounts it, and
@@ -47,21 +63,35 @@ export function GoalsPlayer({ recording }: { recording: GoalRecording | null }) 
     const el = audioRef.current;
     if (!el) return;
 
-    if (playing) {
+    if (playing || loading) {
+      attemptRef.current += 1;
       el.pause();
       el.currentTime = 0;
       setPlaying(false);
+      setLoading(false);
       return;
     }
 
     setError('');
+    setLoading(true);
+    const attempt = ++attemptRef.current;
     el.play()
-      .then(() => setPlaying(true))
+      .then(() => {
+        if (attemptRef.current !== attempt) return; // cancelled before it started
+        setLoading(false);
+        setPlaying(true);
+      })
       // No setPlaying(false) here: play() rejecting means setPlaying(true) above never
       // ran, so playing is already false. If the .then/.catch order ever changes, that
       // stops being true and this needs setPlaying(false) added.
-      .catch(() => setError('Could not play that recording.'));
+      .catch(() => {
+        if (attemptRef.current !== attempt) return; // the cancel above, not a real error
+        setLoading(false);
+        setError('Could not play that recording.');
+      });
   }
+
+  const label = loading ? 'Loading the goals' : playing ? 'Stop the recording' : 'Play the goals';
 
   return (
     <>
@@ -69,9 +99,16 @@ export function GoalsPlayer({ recording }: { recording: GoalRecording | null }) 
         className="btn-icon"
         onClick={toggle}
         aria-pressed={playing}
-        aria-label={playing ? 'Stop the recording' : 'Play the goals'}
+        aria-busy={loading}
+        aria-label={label}
       >
-        {playing ? <StopIcon /> : <SpeakerIcon />}
+        {loading ? (
+          <span className="spinner spinner-icon" />
+        ) : playing ? (
+          <StopIcon />
+        ) : (
+          <SpeakerIcon />
+        )}
       </button>
 
       <audio
@@ -81,6 +118,7 @@ export function GoalsPlayer({ recording }: { recording: GoalRecording | null }) 
         onEnded={() => setPlaying(false)}
         onError={() => {
           setPlaying(false);
+          setLoading(false);
           setError('Could not play that recording.');
         }}
       />
