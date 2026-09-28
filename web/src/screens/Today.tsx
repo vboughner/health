@@ -30,6 +30,7 @@ export function Today({
   settings,
   onReviewGoals,
   onOpenSettings,
+  onAddFood,
 }: {
   user: User;
   date: string;
@@ -41,6 +42,8 @@ export function Today({
   /** Opens the plan. The Goals screen is what records the review. */
   onReviewGoals: () => void;
   onOpenSettings: () => void;
+  /** Opens Add food for the day passed in — always `shown`, never `date`. */
+  onAddFood: (day: string) => void;
 }) {
   const [summary, setSummary] = useState<DaySummary | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -285,6 +288,10 @@ export function Today({
                 ))}
               </div>
             )}
+
+            <button className="btn btn-block" onClick={() => onAddFood(shown)}>
+              Add Food
+            </button>
           </CollapsibleCard>
         )}
 

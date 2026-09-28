@@ -16,11 +16,14 @@ export function AddFood({
   today,
   onChangeDate,
   onLogged,
+  onBack,
 }: {
   date: string;
   today: string;
   onChangeDate: (day: string) => void;
   onLogged: () => void;
+  /** Back to Today. This screen no longer has a tab of its own to tap away to. */
+  onBack: () => void;
 }) {
   const [query, setQuery] = useState('');
   // Results carry the query they belong to, so a stale response for an older query
@@ -95,7 +98,14 @@ export function AddFood({
 
   return (
     <div className="stack">
-      <h1 className="screen-title">Eat Food</h1>
+      <div className="title-row">
+        <h1 className="screen-title">Eat Food</h1>
+        {/* Logging stays on this screen so several foods can go in one visit — this
+            is the only way back to Today, not a side effect of a successful log. */}
+        <button className="btn-ghost tiny" onClick={onBack}>
+          Done
+        </button>
+      </div>
 
       {date !== today && (
         <>

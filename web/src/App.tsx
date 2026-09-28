@@ -11,13 +11,14 @@ import { Goals as GoalsScreen } from './screens/Goals';
 import { Settings } from './screens/Settings';
 
 type Tab = 'today' | 'add' | 'trends' | 'settings' | 'goals';
+/** The tabs that actually sit in the bar. Add food is reached from inside Today now. */
+type BarTab = Exclude<Tab, 'add'>;
 
-// Add food sits in the middle, where a thumb reaches without stretching — it is
-// pressed more often than the other four together.
-const TABS: { id: Tab; label: string; icon: string }[] = [
+// Add food is no longer one of these — it opens from the Eaten card on Today, the
+// way a workout opens from the Exercise card rather than from its own tab.
+const TABS: { id: BarTab; label: string; icon: string }[] = [
   { id: 'today', label: 'Day', icon: '◎' },
   { id: 'goals', label: 'Goals', icon: '⌖' },
-  { id: 'add', label: 'Food', icon: '＋' },
   { id: 'trends', label: 'Trends', icon: '▨' },
   { id: 'settings', label: 'Settings', icon: '⚙' },
 ];
@@ -145,6 +146,19 @@ export function App() {
     setTab(next);
   }, []);
 
+  // Opens Add food for whichever day the Eaten card was showing, not necessarily
+  // `date` — the two can differ for a moment while a day switch is still loading,
+  // and Today's own button is only tappable once that gap has closed (the Eaten
+  // card is dimmed and inert while stale), but sharing this one instant of care
+  // with the tab this replaced costs nothing.
+  const openAddFood = useCallback(
+    (day: string) => {
+      setDate(day);
+      changeTab('add');
+    },
+    [changeTab],
+  );
+
   function handleLoggedIn(next: User, nextGoals: Goals) {
     setUser(next);
     setGoals(nextGoals);
@@ -170,6 +184,11 @@ export function App() {
   // sat over yesterday's entries until something was tapped.
   const today = clock?.today ?? todayIn(user.timezone);
 
+  // Add food has no tab of its own to light up. It opens from Today, so the bar
+  // keeps showing Day while it's up — Day is where the button that got you here
+  // lives, and where tapping the bar's own Day button lands you right back.
+  const barTab: BarTab = tab === 'add' ? 'today' : tab;
+
   return (
     <div className="app">
       <main className="app-main">
@@ -183,10 +202,17 @@ export function App() {
             settings={user.features}
             onReviewGoals={() => changeTab('goals')}
             onOpenSettings={() => changeTab('settings')}
+            onAddFood={openAddFood}
           />
         )}
         {tab === 'add' && (
-          <AddFood date={date} today={today} onChangeDate={setDate} onLogged={handleLogged} />
+          <AddFood
+            date={date}
+            today={today}
+            onChangeDate={setDate}
+            onLogged={handleLogged}
+            onBack={() => changeTab('today')}
+          />
         )}
         {tab === 'trends' && (
           <Trends
@@ -224,7 +250,7 @@ export function App() {
             <button
               key={t.id}
               className="tab"
-              aria-current={tab === t.id ? 'page' : undefined}
+              aria-current={barTab === t.id ? 'page' : undefined}
               onClick={() => changeTab(t.id)}
             >
               <span className="tab-icon">{t.icon}</span>
