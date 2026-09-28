@@ -351,11 +351,17 @@ sqlite3 data/app.db "PRAGMA foreign_keys = ON; DELETE FROM users WHERE username=
 
 The app itself always sets that pragma at startup, which is why the cascade looks reliable
 until the first time you clean up by hand. A recording's audio file is *not* covered by the
-cascade either way, because it is not in the database:
+cascade either way, because it is not in the database. Files are named
+`goals-<user id>-<time>`, so remove only the throwaway account's — look its id up
+**before** deleting the row:
 
 ```sh
-rm -f data/audio/goals-*
+id=$(sqlite3 data/app.db "SELECT id FROM users WHERE username='shot';")
+rm -f "data/audio/goals-$id-"*
 ```
+
+Never `rm data/audio/goals-*`: that is every account's recording, and it is how Van's
+local one was lost in August.
 
 Prefer measuring over eyeballing where you can — element widths, page height across a
 day switch, whether text is clipped (`scrollWidth > clientWidth`).
