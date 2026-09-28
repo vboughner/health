@@ -33,7 +33,6 @@ export function CalorieHeader({
       <div className="kcal-track">
         <div className={`kcal-fill ${over ? 'kcal-fill-over' : ''}`} style={{ width: `${pct}%` }} />
       </div>
-      <div className="tiny faint">of {budget} cal</div>
     </div>
   );
 }
